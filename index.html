@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard Recursos Externos TA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e}
+header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:22px;font-weight:600}
+#lastUpdate{font-size:12px;opacity:.6;margin-top:4px}
+#refreshBtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px}
+main{padding:28px 32px;max-width:1400px;margin:0 auto}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
+.kpi-card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid #4f46e5}
+.kpi-card.green{border-left-color:#10b981}
+.kpi-card.blue{border-left-color:#3b82f6}
+.kpi-card.orange{border-left-color:#f59e0b}
+.kpi-card.red{border-left-color:#ef4444}
+.kpi-label{font-size:12px;color:#6b7280;text-transform:uppercase;margin-bottom:8px}
+.kpi-value{font-size:36px;font-weight:700}
+.kpi-sub{font-size:12px;color:#9ca3af;margin-top:4px}
+.section{margin-bottom:28px}
+.section h2{font-size:15px;font-weight:600;color:#374151;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid #e5e7eb}
+.bar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+.bar-card{background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.bar-card h3{font-size:13px;font-weight:600;margin-bottom:14px}
+.bar-item{margin-bottom:10px}
+.bar-label{display:flex;justify-content:space-between;font-size:12px;color:#4b5563;margin-bottom:4px}
+.bar-track{background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden}
+.bar-fill{height:8px;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#7c3aed)}
+.bar-fill.green{background:linear-gradient(90deg,#10b981,#059669)}
+.bar-fill.orange{background:linear-gradient(90deg,#f59e0b,#d97706)}
+.table-card{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead{background:#1a1a2e;color:white}
+thead th{padding:12px 16px;text-align:left;font-size:12px;font-weight:500}
+tbody tr{border-bottom:1px solid #f3f4f6}
+tbody tr:hover{background:#f9fafb}
+tbody td{padding:11px 16px;font-size:13px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.badge.indet{background:#e0e7ff;color:#3730a3}
+.badge.det{background:#fef3c7;color:#92400e}
+#errorMsg{background:#fee2e2;color:#991b1b;padding:16px;border-radius:8px;margin-bottom:20px;display:none}
+.loading{text-align:center;padding:60px;color:#9ca3af}
+.setup-banner{background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:20px 24px;margin-bottom:24px}
+.setup-banner h3{color:#92400e;font-size:14px;margin-bottom:8px}
+.setup-banner p{color:#78350f;font-size:13px;line-height:1.6}
+.setup-banner code{background:#fef3c7;padding:2px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dashboard - Recursos Externos TA</h1>
+    <div id="lastUpdate">Cargando datos...</div>
+  </div>
+  <button id="refreshBtn" onclick="loadData()">Actualizar</button>
+</header>
+<main>
+  <div id="errorMsg"></div>
+  <div id="content" class="loading">Cargando...</div>
+</main>
+<script>
+var API_URL="PEGAR_URL_APPS_SCRIPT_AQUI";
+function loadData(){
+  if(API_URL==="PEGAR_URL_APPS_SCRIPT_AQUI"){
+    document.getElementById("content").innerHTML='<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. En tu Google Sheet: Extensiones &gt; Apps Script<br>2. Pegar el codigo y publicar como Web App<br>3. Reemplazar <code>PEGAR_URL_APPS_SCRIPT_AQUI</code> en este archivo con la URL</p></div>';
+    document.getElementById("lastUpdate").textContent="Sin conectar";
+    return;
+  }
+  document.getElementById("refreshBtn").textContent="Actualizando...";
+  fetch(API_URL).then(function(r){return r.json()}).then(function(res){
+    if(!res.ok)throw new Error(res.error);
+    renderDashboard(res.data);
+    document.getElementById("lastUpdate").textContent="Actualizado: "+new Date().toLocaleString("es-MX");
+    document.getElementById("refreshBtn").textContent="Actualizar";
+  }).catch(function(err){
+    document.getElementById("errorMsg").style.display="block";
+    document.getElementById("errorMsg").textContent="Error: "+err.message;
+    document.getElementById("refreshBtn").textContent="Actualizar";
+  });
+}
+function renderDashboard(data){
+  var activos=data.filter(function(r){return(r.statusRecurso||"").toLowerCase()==="activo"});
+  var total=data.length,totalAct=activos.length;
+  var indet=activos.filter(function(r){return(r.tipoRecurso||"").toUpperCase()==="INDETERMINADO"}).length;
+  var det=activos.filter(function(r){return(r.tipoRecurso||"").toUpperCase()!=="INDETERMINADO"&&r.tipoRecurso!==""}).length;
+  var porAgencia=groupBy(activos,"agencia"),porHead=groupBy(activos,"head");
+  var html='<div class="kpi-grid">'+
+    kpiCard("green","Total Activos",totalAct,"de "+total+" registros")+
+    kpiCard("blue","Indeterminados Activos",indet,pct(indet,totalAct)+"% del activo")+
+    kpiCard("orange","Determinados Activos",det,pct(det,totalAct)+"% del activo")+
+    kpiCard("red","Inactivos",total-totalAct,pct(total-totalAct,total)+"% del total")+
+    '</div>'+
+    '<div class="bar-grid section">'+
+    '<div class="bar-card"><h3>Por Agencia</h3>'+renderBars(porAgencia,totalAct,"green")+'</div>'+
+    '<div class="bar-card"><h3>Por Head</h3>'+renderBars(porHead,totalAct,"orange")+'</div>'+
+    '</div>'+
+    '<div class="section"><h2>Detalle Recursos Activos ('+totalAct+')</h2>'+
+    '<div class="table-card"><table><thead><tr><th>Nombre</th><th>Agencia</th><th>Rol</th><th>Tipo</th><th>Head</th><th>Lider</th><th>Inicio</th><th>Fin</th></tr></thead><tbody>'+
+    activos.map(function(r){
+      return '<tr><td>'+r.nombre+'</td><td>'+r.agencia+'</td><td>'+r.rol+'</td><td><span class="badge '+((r.tipoRecurso||"").toUpperCase()==="INDETERMINADO"?"indet":"det")+'">'+( r.tipoRecurso||"-")+'</span></td><td>'+r.head+'</td><td>'+r.lider+'</td><td>'+r.fechaInicio+'</td><td>'+(r.fechaFin||"S/F")+'</td></tr>';
+    }).join("")+
+    '</tbody></table></div></div>';
+  document.getElementById("content").innerHTML=html;
+  document.getElementById("content").className="";
+}
+function kpiCard(c,l,v,s){return'<div class="kpi-card '+c+'"><div class="kpi-label">'+l+'</div><div class="kpi-value">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';}
+function groupBy(arr,key){return arr.reduce(function(acc,r){var k=r[key]||"Sin datos";acc[k]=(acc[k]||0)+1;return acc},{});}
+function renderBars(obj,total,color){return Object.entries(obj).sort(function(a,b){return b[1]-a[1]}).map(function(e){var k=e[0],v=e[1];return'<div class="bar-item"><div class="bar-label"><span>'+k+'</span><span><b>'+v+'</b> ('+pct(v,total)+'%)</span></div><div class="bar-track"><div class="bar-fill '+color+'" style="width:'+pct(v,total)+'%"></div></div></div>';}).join("");}
+function pct(val,total){return total?Math.round((val/total)*100):0;}
+loadData();
+</script>
+</body>
+</html>
