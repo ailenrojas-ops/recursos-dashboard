@@ -63,9 +63,9 @@ tbody td{padding:11px 16px;font-size:13px}
   <div id="content" class="loading">Cargando...</div>
 </main>
 <script>
-var API_URL="PEGAR_URL_APPS_SCRIPT_AQUI";
+var API_URL="https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOOlKuXhiaeUO_ArtXz66IK5x_/exec";
 function loadData(){
-  if(API_URL==="PEGAR_URL_APPS_SCRIPT_AQUI"){
+  if(API_URL==="https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOOlKuXhiaeUO_ArtXz66IK5x_/exec"){
     document.getElementById("content").innerHTML='<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. En tu Google Sheet: Extensiones &gt; Apps Script<br>2. Pegar el codigo y publicar como Web App<br>3. Reemplazar <code>PEGAR_URL_APPS_SCRIPT_AQUI</code> en este archivo con la URL</p></div>';
     document.getElementById("lastUpdate").textContent="Sin conectar";
     return;
