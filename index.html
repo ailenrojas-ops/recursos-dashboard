@@ -1,4 +1,4 @@
-<!-- Dashboard Recursos Externos TA v3 -->
+<!-- Dashboard Recursos Externos TA v4 -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -13,7 +13,7 @@ header h1{font-size:22px;font-weight:600}
 #lastUpdate{font-size:12px;opacity:.6;margin-top:4px}
 #refreshBtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px}
 main{padding:28px 32px;max-width:1400px;margin:0 auto}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1hfr));gap:16px;margin-bottom:28px}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
 .kpi-card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid #4f46e5}
 .kpi-card.green{border-left-color:#10b981}
 .kpi-card.blue{border-left-color:#3b82f6}
@@ -29,14 +29,12 @@ main{padding:28px 32px;max-width:1400px;margin:0 auto}
 .bar-card h3{font-size:13px;font-weight:600;margin-bottom:14px}
 .bar-item{margin-bottom:10px}
 .bar-label{display:flex;justify-content:space-between;font-size:12px;color:#4b5563;margin-bottom:4px}
-.bar-track{background:#f3f4f6;border-radius:99px;height:8px;overflow:hidden}
-.bar-fill{height:8px;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#7c3aed)}
+.bar-fill{height:8px;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#818cf8)}
 .bar-fill.green{background:linear-gradient(90deg,#10b981,#059669)}
 .bar-fill.orange{background:linear-gradient(90deg,#f59e0b,#d97706)}
-.table-card{background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.06);overflow:hidden}
-table{width:100%;border-collapse:collapse}
-thead{background:#1a1a2e;color:white}
-thead th{padding:12px 16px;text-align:left;font-size:12px;font-weight:500}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+th{background:#f8fafc;padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;border-bottom:2px solid #e5e7eb}
+td{padding:11px 16px;font-size:13px;border-bottom:1px solid #f3f4f6}
 tbody tr{border-bottom:1px solid #f3f4f6}
 tbody tr:hover{background:#f9fafb}
 tbody td{padding:11px 16px;font-size:13px}
@@ -64,10 +62,10 @@ tbody td{padding:11px 16px;font-size:13px}
   <div id="content" class="loading">Cargando...</div>
 </main>
 <script>
-var API_URL="https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOOlKuXhiaeUO_ArtXz66IK5x_/exec";
+var API_URL="https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOO1KuXhiaeUO_ArtXz66IK5x_/exec";
 function loadData(){
-  if(API_URL==="https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOOlKuXhiaeUO_ArtXz66IK5x_/exec"){
-    document.getElementById("content").innerHTML='<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. En tu Google Sheet: Extensiones &gt; Apps Script<br>2. Pegar el codigo y publicar como Web App<br>3. Reemplazar <code>https://script.google.com/a/macros/mercadolibre.com/s/AKfycbzStLhTKOHzpWEwu6L-H3uCTMiVgXdVubbEXWtF88AOOlKuXhiaeUO_ArtXz66IK5x_/exec</code> en este archivo con la URL</p></div>';
+  if(API_URL==="PEGAR_URL_APPS_SCRIPT_AQUI"){
+    document.getElementById("content").innerHTML='<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. En tu Google Sheet: Extensiones &gt; Apps Script<br>2. Pegar el codigo y publicar como Web App<br>3. Reemplazar <code>PEGAR_URL_APPS_SCRIPT_AQUI</code> en este archivo con la URL</p></div>';
     document.getElementById("lastUpdate").textContent="Sin conectar";
     return;
   }
@@ -99,21 +97,37 @@ function renderDashboard(data){
     '<div class="bar-card"><h3>Por Agencia</h3>'+renderBars(porAgencia,totalAct,"green")+'</div>'+
     '<div class="bar-card"><h3>Por Head</h3>'+renderBars(porHead,totalAct,"orange")+'</div>'+
     '</div>'+
-    '<div class="section"><h2>Detalle Recursos Activos ('+totalAct+')</h2>'+
-    '<div class="table-card"><table><thead><tr><th>Nombre</th><th>Agencia</th><th>Rol</th><th>Tipo</th><th>Head</th><th>Lider</th><th>Inicio</th><th>Fin</th></tr></thead><tbody>'+
-    activos.map(function(r){
-      return '<tr><td>'+r.nombre+'</td><td>'+r.agencia+'</td><td>'+r.rol+'</td><td><span class="badge '+((r.tipoRecurso||"").toUpperCase()==="INDETERMINADO"?"indet":"det")+'">'+( r.tipoRecurso||"-")+'</span></td><td>'+r.head+'</td><td>'+r.lider+'</td><td>'+r.fechaInicio+'</td><td>'+(r.fechaFin||"S/F")+'</td></tr>';
-    }).join("")+
-    '</tbody></table></div></div>';
+    '<section class="section"><h2>Recursos Activos</h2>'+renderTable(activos)+'</section>';
   document.getElementById("content").innerHTML=html;
-  document.getElementById("content").className="";
 }
-function kpiCard(c,l,v,s){return'<div class="kpi-card '+c+'"><div class="kpi-label">'+l+'</div><div class="kpi-value">'+v+'</div><div class="kpi-sub">'+s+'</div></div>';}
-function groupBy(arr,key){return arr.reduce(function(acc,r){var k=r[key]||"Sin datos";acc[k]=(acc[k]||0)+1;return acc},{});}
-function renderBars(obj,total,color){return Object.entries(obj).sort(function(a,b){return b[1]-a[1]}).map(function(e){var k=e[0],v=e[1];return'<div class="bar-item"><div class="bar-label"><span>'+k+'</span><span><b>'+v+'</b> ('+pct(v,total)+'%)</span></div><div class="bar-track"><div class="bar-fill '+color+'" style="width:'+pct(v,total)+'%"></div></div></div>';}).join("");}
-function pct(val,total){return total?Math.round((val/total)*100):0;}
+function kpiCard(color,label,value,sub){
+  return'<div class="kpi-card '+color+'"><div class="kpi-label">'+label+'</div><div class="kpi-value">'+value+'</div><div class="kpi-sub">'+sub+'</div></div>';
+}
+function pct(a,b){return b?Math.round(a/b*100):0}
+function groupBy(arr,key){
+  var g={};
+  arr.forEach(function(r){var k=r[key]||"Sin asignar";g[k]=(g[k]||0)+1});
+  return Object.entries(g).sort(function(a,b){return b[1]-a[1]});
+}
+function renderBars(entries,total,color){
+  return entries.map(function(e){
+    var w=total?Math.round(e[1]/total*100):0;
+    return'<div class="bar-item"><div class="bar-label"><span>'+e[0]+'</span><span>'+e[1]+'</span></div><div style="background:#f3f4f6;border-radius:99px;height:8px"><div class="bar-fill '+color+'" style="width:'+w+'%"></div></div></div>';
+  }).join("");
+}
+function renderTable(rows){
+  var cols=[["nombre","Nombre"],["agencia","Agencia"],["tipoRecurso","Tipo"],["fechaInicio","Inicio"],["fechaFin","Fin"],["lider","Líder"],["head","Head"],["equipo","Equipo"],["rol","Rol"],["sitio","Sitio"]];
+  var head='<tr>'+cols.map(function(c){return'<th>'+c[1]+'</th>'}).join("")+'</tr>';
+  var body=rows.map(function(r){
+    return'<tr>'+cols.map(function(c){
+      var v=r[c[0]]||"";
+      if(c[0]==="tipoRecurso")v='<span class="badge '+(v.toUpperCase()==="INDETERMINADO"?"indet":"det")+'">'+v+'</span>';
+      return'<td>'+v+'</td>';
+    }).join("")+'</tr>';
+  }).join("");
+  return'<table><thead>'+head+'</thead><tbody>'+body+'</tbody></table>';
+}
 loadData();
 </script>
 </body>
 </html>
-
