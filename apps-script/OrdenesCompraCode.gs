@@ -10,11 +10,40 @@
 
 function doGet(e) {
   try {
-    var data = getPurchaseRequests_();
-    return jsonOutput_({ ok: true, data: data });
+    var fx = getFxRates_();
+    var data = getPurchaseRequests_(fx);
+    return jsonOutput_({ ok: true, data: data, fx: { rates: fx.rates, asOf: fx.asOf, source: fx.source } });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message });
   }
+}
+
+// Tipos de cambio de referencia (unidades de moneda local por 1 USD),
+// usados solo si falla la consulta a la API en vivo. Actualizar cada tanto.
+var FALLBACK_RATES_ = { MXN: 18.5, BRL: 5.6, ARS: 1000, USD: 1 };
+
+function getFxRates_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get("fxRates");
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) {}
+  }
+  var result = null;
+  try {
+    var resp = UrlFetchApp.fetch("https://open.er-api.com/v6/latest/USD", { muteHttpExceptions: true });
+    var json = JSON.parse(resp.getContentText());
+    if (json && json.result === "success" && json.rates) {
+      result = { rates: json.rates, asOf: json.time_last_update_utc || new Date().toISOString(), source: "live" };
+    }
+  } catch (err) {
+    // sin conexión o API caída: se usa el fallback
+  }
+  if (!result) {
+    result = { rates: FALLBACK_RATES_, asOf: "Tipo de cambio de referencia (sin conexión a API en vivo)", source: "fallback" };
+  }
+  result.rates.USD = 1;
+  try { cache.put("fxRates", JSON.stringify(result), 21600); } catch (e) {} // 6 hs
+  return result;
 }
 
 function jsonOutput_(obj) {
@@ -29,7 +58,7 @@ function findResponsesSheet_(ss) {
   return sheets[0];
 }
 
-function getPurchaseRequests_() {
+function getPurchaseRequests_(fx) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = findResponsesSheet_(ss);
   var values = sheet.getDataRange().getValues();
@@ -68,6 +97,11 @@ function getPurchaseRequests_() {
     var fechaDate = fechaRaw instanceof Date ? fechaRaw : parseSpanishDate_(String(fechaRaw || ""));
     if (!fechaDate) continue; // sin fecha válida no se puede agrupar por mes
 
+    var importe = normalizeAmount_(get(row, "Importe total"));
+    var moneda = String(get(row, "Moneda") || "").trim() || "N/D";
+    var rate = fx.rates[moneda];
+    var importeUsd = (importe != null && rate) ? importe / rate : null;
+
     out.push({
       id: idNum,
       fecha: fechaDate.toISOString(),
@@ -76,8 +110,9 @@ function getPurchaseRequests_() {
       titulo: String(get(row, "Título de solicitud") || "").trim(),
       categoria: String(get(row, "Categoría") || "").trim(),
       proveedor: cleanProveedor_(String(get(row, "Proveedor") || "").trim()),
-      importe: normalizeAmount_(get(row, "Importe total")),
-      moneda: String(get(row, "Moneda") || "").trim() || "N/D",
+      importe: importe,
+      moneda: moneda,
+      importeUsd: importeUsd,
       head: String(get(row, "HEAD") || "").trim() || "Sin asignar",
       status: String(get(row, "Status") || "").trim() || "Sin status",
       oc: String(get(row, "OC") || "").trim(),
