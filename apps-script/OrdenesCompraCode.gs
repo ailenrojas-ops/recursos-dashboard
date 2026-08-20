@@ -154,7 +154,8 @@ function getPurchaseRequests_() {
       head: String(get(row, "HEAD") || "").trim() || "Sin asignar",
       status: String(get(row, "Status") || "").trim() || "Sin status",
       oc: String(get(row, "OC") || "").trim(),
-      pr: String(get(row, "PR") || "").trim()
+      pr: String(get(row, "PR") || "").trim(),
+      contratoMarco: normalizeContrato_(get(row, "Contract compliance (contrato marco)"))
     });
   }
   return { rows: out, fxByMonth: fxByMonth };
@@ -174,6 +175,17 @@ function normalizeAmount_(v) {
   }
   var n = parseFloat(s);
   return isNaN(n) ? null : n;
+}
+
+// Frases que aparecen en la columna "Contrato Marco" pero no son un número de
+// contrato real (indican que no aplica o que no hay saldo disponible).
+var NO_CONTRATO_VALUES_ = ["no aplica", "sem saldo", "sem saldo suficiente", "não possui saldo suficiente", "no"];
+
+function normalizeContrato_(v) {
+  var s = String(v || "").trim();
+  if (!s) return "";
+  if (NO_CONTRATO_VALUES_.indexOf(s.toLowerCase()) !== -1) return "";
+  return s;
 }
 
 function cleanProveedor_(s) {
