@@ -10,40 +10,74 @@
 
 function doGet(e) {
   try {
-    var fx = getFxRates_();
-    var data = getPurchaseRequests_(fx);
-    return jsonOutput_({ ok: true, data: data, fx: { rates: fx.rates, asOf: fx.asOf, source: fx.source } });
+    var result = getPurchaseRequests_();
+    return jsonOutput_({ ok: true, data: result.rows, fxByMonth: result.fxByMonth });
   } catch (err) {
     return jsonOutput_({ ok: false, error: err.message });
   }
 }
 
 // Tipos de cambio de referencia (unidades de moneda local por 1 USD),
-// usados solo si falla la consulta a la API en vivo. Actualizar cada tanto.
+// usados solo si falla la consulta a la API de tipos de cambio históricos.
+// Actualizar cada tanto para que el fallback no quede muy desactualizado.
 var FALLBACK_RATES_ = { MXN: 18.5, BRL: 5.6, ARS: 1000, USD: 1 };
 
-function getFxRates_() {
+/**
+ * Devuelve el tipo de cambio "de cierre" de un mes: el vigente al último día
+ * de ese mes (o el último día disponible hacia atrás, por si cae en fin de
+ * semana/feriado, o si el mes todavía está en curso). Así los montos en USD
+ * de un mes ya cerrado no cambian aunque hoy el dólar valga otra cosa.
+ */
+function getMonthEndRates_(year, month) {
   var cache = CacheService.getScriptCache();
-  var cached = cache.get("fxRates");
+  var cacheKey = "fxHist_" + year + "_" + month;
+  var cached = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) {}
   }
-  var result = null;
-  try {
-    var resp = UrlFetchApp.fetch("https://open.er-api.com/v6/latest/USD", { muteHttpExceptions: true });
-    var json = JSON.parse(resp.getContentText());
-    if (json && json.result === "success" && json.rates) {
-      result = { rates: json.rates, asOf: json.time_last_update_utc || new Date().toISOString(), source: "live" };
-    }
-  } catch (err) {
-    // sin conexión o API caída: se usa el fallback
-  }
+
+  var lastDay = new Date(year, month, 0); // día 0 del mes siguiente = último día de "month"
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (lastDay > today) lastDay = today; // mes en curso: usar la fecha más reciente disponible
+
+  var result = fetchHistoricalRates_(lastDay, 6);
   if (!result) {
-    result = { rates: FALLBACK_RATES_, asOf: "Tipo de cambio de referencia (sin conexión a API en vivo)", source: "fallback" };
+    result = { rates: FALLBACK_RATES_, asOf: "Tipo de cambio de referencia (sin conexión a la API histórica)", source: "fallback" };
   }
   result.rates.USD = 1;
-  try { cache.put("fxRates", JSON.stringify(result), 21600); } catch (e) {} // 6 hs
+  try { cache.put(cacheKey, JSON.stringify(result), 21600); } catch (e) {} // máx. 6 hs permitidas por CacheService
   return result;
+}
+
+function fetchHistoricalRates_(date, maxDaysBack) {
+  for (var i = 0; i <= maxDaysBack; i++) {
+    var d = new Date(date.getTime() - i * 24 * 60 * 60 * 1000);
+    var dateStr = formatDateYMD_(d);
+    try {
+      var url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@" + dateStr + "/v1/currencies/usd.json";
+      var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      if (resp.getResponseCode() === 200) {
+        var json = JSON.parse(resp.getContentText());
+        if (json && json.usd) {
+          var rates = {};
+          Object.keys(json.usd).forEach(function (k) { rates[k.toUpperCase()] = json.usd[k]; });
+          return { rates: rates, asOf: json.date || dateStr, source: "live" };
+        }
+      }
+    } catch (err) {
+      // intenta con el día anterior
+    }
+  }
+  return null;
+}
+
+function formatDateYMD_(d) {
+  return d.getFullYear() + "-" + pad2_(d.getMonth() + 1) + "-" + pad2_(d.getDate());
+}
+
+function pad2_(n) {
+  return (n < 10 ? "0" : "") + n;
 }
 
 function jsonOutput_(obj) {
@@ -58,7 +92,7 @@ function findResponsesSheet_(ss) {
   return sheets[0];
 }
 
-function getPurchaseRequests_(fx) {
+function getPurchaseRequests_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = findResponsesSheet_(ss);
   var values = sheet.getDataRange().getValues();
@@ -86,6 +120,7 @@ function getPurchaseRequests_(fx) {
   }
 
   var out = [];
+  var fxByMonth = {};
   for (var r = headerRowIdx + 1; r < values.length; r++) {
     var row = values[r];
     var idRaw = get(row, "ID Vendor Management");
@@ -99,7 +134,10 @@ function getPurchaseRequests_(fx) {
 
     var importe = normalizeAmount_(get(row, "Importe total"));
     var moneda = String(get(row, "Moneda") || "").trim() || "N/D";
-    var rate = fx.rates[moneda];
+
+    var monthKey = fechaDate.getFullYear() + "-" + (fechaDate.getMonth() + 1);
+    if (!fxByMonth[monthKey]) fxByMonth[monthKey] = getMonthEndRates_(fechaDate.getFullYear(), fechaDate.getMonth() + 1);
+    var rate = fxByMonth[monthKey].rates[moneda];
     var importeUsd = (importe != null && rate) ? importe / rate : null;
 
     out.push({
@@ -119,7 +157,7 @@ function getPurchaseRequests_(fx) {
       pr: String(get(row, "PR") || "").trim()
     });
   }
-  return out;
+  return { rows: out, fxByMonth: fxByMonth };
 }
 
 function normalizeAmount_(v) {

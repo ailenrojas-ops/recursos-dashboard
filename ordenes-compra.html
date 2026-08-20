@@ -78,7 +78,7 @@ tbody tr:hover{background:#f9fafb}
 <script>
 var API_URL = "PEGAR_URL_APPS_SCRIPT_AQUI";
 var RAW = [];
-var FX = null;
+var FX_BY_MONTH = null; // { "2026-1": {rates:{MXN:...}, asOf, source}, ... } - tipo de cambio de cierre de cada mes
 
 function loadData(){
   if(API_URL === "PEGAR_URL_APPS_SCRIPT_AQUI"){
@@ -90,7 +90,7 @@ function loadData(){
   fetch(API_URL).then(function(r){return r.json()}).then(function(res){
     if(!res.ok) throw new Error(res.error);
     RAW = res.data;
-    FX = res.fx || null;
+    FX_BY_MONTH = res.fxByMonth || null;
     buildFilters(RAW);
     renderAll();
     document.getElementById("lastUpdate").textContent = "Actualizado: " + new Date().toLocaleString("es-MX") + " · " + RAW.length + " solicitudes";
@@ -188,6 +188,7 @@ function renderAll(){
   var html = renderHeadlineKpis(getHeadlineScope(now), now) +
     '<section class="section"><h2>Resumen del Período Filtrado</h2>' + renderKpis(data) + '</section>' +
     renderMontosPorMoneda(data, now) +
+    renderFxTable(data) +
     '<div class="grid-2 section">' +
       card("Solicitudes por Mes", renderBarsObj(countByMonth(data), "blue")) +
       card("Solicitudes por Usuario", renderBarsObj(countBy(data,"usuario"), "green", 10)) +
@@ -221,16 +222,34 @@ function renderHeadlineKpis(scope, now){
     kpiCard("orange", "Solicitantes Únicos " + year, Object.keys(solicitantes).length, "según \"En representación de usuario\"") +
     kpiCard("green", "Monto Total " + year + " (USD)", fmtUSD(montoTotalUsd), "Promedio " + fmtUSD(avgUsdMes) + " / mes") +
     '</div>';
-  html += '<div class="hint" style="margin:-10px 0 24px">' + fxDisclosure() + '</div>';
+  html += '<div class="hint" style="margin:-10px 0 24px">Los montos en USD usan el tipo de cambio de cierre de cada mes (no el de hoy): cada solicitud se convierte con el dólar vigente al último día de su propio mes, así los meses ya cerrados no cambian de valor.</div>';
   return html;
 }
-function fxDisclosure(){
-  if (!FX || !FX.rates) return "Los montos en USD son aproximados: falta el tipo de cambio.";
-  var pares = ["MXN","BRL","ARS"].filter(function(c){return FX.rates[c];}).map(function(c){
-    return "1 USD = " + fmtNum(FX.rates[c]) + " " + c;
-  }).join(" · ");
-  var fuente = FX.source === "live" ? "tipo de cambio en vivo" : "tipo de cambio de referencia (sin conexión a la API)";
-  return "Conversión a USD: " + pares + " (" + fuente + ", actualizado: " + esc(FX.asOf) + ")";
+function renderFxTable(rows){
+  if (!FX_BY_MONTH || !rows.length) return "";
+  var monedas = uniqueSorted(rows,"moneda").filter(function(m){return m!=="N/D" && m!=="USD";});
+  if (!monedas.length) return "";
+  var meses = {};
+  rows.forEach(function(r){
+    var d = new Date(r.fecha);
+    meses[d.getFullYear()+"-"+(d.getMonth()+1)] = true;
+  });
+  var keys = Object.keys(meses).sort(function(a,b){
+    var pa=a.split("-").map(Number), pb=b.split("-").map(Number);
+    return pa[0]-pb[0] || pa[1]-pb[1];
+  });
+  var body = keys.map(function(k){
+    var fx = FX_BY_MONTH[k];
+    if (!fx) return "";
+    var parts = k.split("-");
+    var cols = monedas.map(function(m){ return fx.rates[m] ? fmtNum(fx.rates[m]) + " " + m : "-"; }).join(" · ");
+    var fuente = fx.source === "live" ? "En vivo" : "Referencia (sin conexión)";
+    return '<tr><td>'+mesNombre(parts[1])+' '+parts[0]+'</td><td>'+cols+'</td><td>'+fuente+'</td></tr>';
+  }).join("");
+  if (!body) return "";
+  return '<div class="hint" style="margin:0 0 24px"><details><summary style="cursor:pointer">Ver tipos de cambio usados por mes</summary>' +
+    '<div class="table-wrap" style="margin-top:8px"><table><thead><tr><th>Mes</th><th>1 USD =</th><th>Fuente</th></tr></thead><tbody>'+body+'</tbody></table></div>' +
+    '</details></div>';
 }
 function fmtNum(n){
   if (n==null || isNaN(n)) return "-";
