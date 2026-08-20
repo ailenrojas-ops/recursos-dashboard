@@ -1,0 +1,337 @@
+<!-- Dashboard Solicitudes de Orden de Compra -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Solicitudes de Orden de Compra</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f0f2f5;color:#1a1a2e}
+header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+header h1{font-size:22px;font-weight:600}
+header a{color:rgba(255,255,255,.7);font-size:12px;text-decoration:none}
+#lastUpdate{font-size:12px;opacity:.6;margin-top:4px}
+#refreshBtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:white;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px}
+main{padding:28px 32px;max-width:1400px;margin:0 auto}
+.filters{background:white;border-radius:12px;padding:16px 20px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,.06);display:flex;gap:14px;flex-wrap:wrap;align-items:end}
+.filter-item{display:flex;flex-direction:column;gap:4px;min-width:150px}
+.filter-item label{font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:600}
+.filter-item select{padding:8px 10px;border-radius:8px;border:1px solid #e5e7eb;font-size:13px;background:#f9fafb}
+.filter-reset{background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;color:#374151}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:28px}
+.kpi-card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 2px 8px rgba(0,0,0,.06);border-left:4px solid #4f46e5}
+.kpi-card.green{border-left-color:#10b981}
+.kpi-card.blue{border-left-color:#3b82f6}
+.kpi-card.orange{border-left-color:#f59e0b}
+.kpi-card.red{border-left-color:#ef4444}
+.kpi-label{font-size:12px;color:#6b7280;text-transform:uppercase;margin-bottom:8px}
+.kpi-value{font-size:32px;font-weight:700}
+.kpi-sub{font-size:12px;color:#9ca3af;margin-top:4px}
+.section{margin-bottom:28px}
+.section h2{font-size:15px;font-weight:600;color:#374151;margin-bottom:6px;padding-bottom:8px;border-bottom:2px solid #e5e7eb}
+.section .hint{font-size:11px;color:#9ca3af;margin:-2px 0 14px}
+.grid-2{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:16px}
+.card{background:white;border-radius:12px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.card h3{font-size:13px;font-weight:600;margin-bottom:14px}
+.bar-item{margin-bottom:10px}
+.bar-label{display:flex;justify-content:space-between;font-size:12px;color:#4b5563;margin-bottom:4px;gap:8px}
+.bar-label span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{background:#f3f4f6;border-radius:99px;height:8px}
+.bar-fill{height:8px;border-radius:99px;background:linear-gradient(90deg,#4f46e5,#818cf8)}
+.bar-fill.green{background:linear-gradient(90deg,#10b981,#059669)}
+.bar-fill.orange{background:linear-gradient(90deg,#f59e0b,#d97706)}
+.bar-fill.blue{background:linear-gradient(90deg,#3b82f6,#60a5fa)}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+th{background:#f8fafc;padding:12px 16px;text-align:left;font-size:12px;font-weight:600;color:#374151;text-transform:uppercase;border-bottom:2px solid #e5e7eb;white-space:nowrap}
+td{padding:11px 16px;font-size:13px;border-bottom:1px solid #f3f4f6}
+tbody tr:hover{background:#f9fafb}
+.table-wrap{overflow-x:auto;border-radius:12px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge.pend{background:#fef3c7;color:#92400e}
+.badge.enviada{background:#dbeafe;color:#1e40af}
+.badge.otro{background:#e5e7eb;color:#374151}
+#errorMsg{background:#fee2e2;color:#991b1b;padding:16px;border-radius:8px;margin-bottom:20px;display:none}
+.loading{text-align:center;padding:60px;color:#9ca3af}
+.setup-banner{background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:20px 24px;margin-bottom:24px}
+.setup-banner h3{color:#92400e;font-size:14px;margin-bottom:8px}
+.setup-banner p{color:#78350f;font-size:13px;line-height:1.6}
+.setup-banner code{background:#fef3c7;padding:2px 6px;border-radius:4px}
+.empty{color:#9ca3af;font-size:13px;padding:8px 0}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dashboard - Solicitudes de Orden de Compra</h1>
+    <div id="lastUpdate">Cargando datos...</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <a href="index.html">Ver Dashboard Recursos Externos TA →</a>
+    <button id="refreshBtn" onclick="loadData()">Actualizar</button>
+  </div>
+</header>
+<main>
+  <div id="errorMsg"></div>
+  <div id="content" class="loading">Cargando...</div>
+</main>
+<script>
+var API_URL = "PEGAR_URL_APPS_SCRIPT_AQUI";
+var RAW = [];
+
+function loadData(){
+  if(API_URL === "PEGAR_URL_APPS_SCRIPT_AQUI"){
+    document.getElementById("content").innerHTML = '<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. En el Google Sheet de solicitudes de OC: Extensiones &gt; Apps Script<br>2. Pegar el código de <code>apps-script/OrdenesCompraCode.gs</code> y publicarlo como Aplicación Web<br>3. Reemplazar <code>PEGAR_URL_APPS_SCRIPT_AQUI</code> en este archivo con la URL /exec generada</p></div>';
+    document.getElementById("lastUpdate").textContent = "Sin conectar";
+    return;
+  }
+  document.getElementById("refreshBtn").textContent = "Actualizando...";
+  fetch(API_URL).then(function(r){return r.json()}).then(function(res){
+    if(!res.ok) throw new Error(res.error);
+    RAW = res.data;
+    buildFilters(RAW);
+    renderAll();
+    document.getElementById("lastUpdate").textContent = "Actualizado: " + new Date().toLocaleString("es-MX") + " · " + RAW.length + " solicitudes";
+    document.getElementById("refreshBtn").textContent = "Actualizar";
+  }).catch(function(err){
+    document.getElementById("errorMsg").style.display = "block";
+    document.getElementById("errorMsg").textContent = "Error: " + err.message;
+    document.getElementById("refreshBtn").textContent = "Actualizar";
+  });
+}
+
+/* ---------- filtros ---------- */
+function buildFilters(data){
+  var main = document.getElementById("content");
+  if(!document.getElementById("filtersBar")){
+    var bar = document.createElement("div");
+    bar.className = "filters";
+    bar.id = "filtersBar";
+    main.parentNode.insertBefore(bar, main);
+  }
+  var bar = document.getElementById("filtersBar");
+  var anios = uniqueSorted(data, "anioMes_anio");
+  var heads = uniqueSorted(data, "head");
+  var usuarios = uniqueSorted(data, "usuario");
+  var monedas = uniqueSorted(data, "moneda");
+  var statuses = uniqueSorted(data, "status");
+  bar.innerHTML =
+    filterSelect("fAnio","Año",anios) +
+    filterSelect("fMes","Mes",["1","2","3","4","5","6","7","8","9","10","11","12"], mesNombre) +
+    filterSelect("fHead","Head",heads) +
+    filterSelect("fUsuario","Usuario",usuarios) +
+    filterSelect("fMoneda","Moneda",monedas) +
+    filterSelect("fStatus","Status",statuses) +
+    '<button class="filter-reset" onclick="resetFilters()">Limpiar filtros</button>';
+  ["fAnio","fMes","fHead","fUsuario","fMoneda","fStatus"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", renderAll);
+  });
+}
+function filterSelect(id,label,values,labelFn){
+  var opts = '<option value="">Todos</option>' + values.map(function(v){
+    return '<option value="'+esc(v)+'">'+esc(labelFn?labelFn(v):v)+'</option>';
+  }).join("");
+  return '<div class="filter-item"><label>'+label+'</label><select id="'+id+'">'+opts+'</select></div>';
+}
+function resetFilters(){
+  ["fAnio","fMes","fHead","fUsuario","fMoneda","fStatus"].forEach(function(id){document.getElementById(id).value="";});
+  renderAll();
+}
+function uniqueSorted(data, key){
+  var s = {};
+  data.forEach(function(r){ s[keyOf(r,key)] = true; });
+  return Object.keys(s).filter(Boolean).sort();
+}
+function keyOf(r,key){
+  if(key==="anioMes_anio") return String(new Date(r.fecha).getFullYear());
+  return r[key];
+}
+function mesNombre(m){
+  var nombres=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+  return nombres[parseInt(m,10)-1] || m;
+}
+
+function getFiltered(){
+  var fAnio = val("fAnio"), fMes = val("fMes"), fHead = val("fHead"), fUsuario = val("fUsuario"), fMoneda = val("fMoneda"), fStatus = val("fStatus");
+  return RAW.filter(function(r){
+    var d = new Date(r.fecha);
+    if(fAnio && String(d.getFullYear()) !== fAnio) return false;
+    if(fMes && String(d.getMonth()+1) !== fMes) return false;
+    if(fHead && r.head !== fHead) return false;
+    if(fUsuario && r.usuario !== fUsuario) return false;
+    if(fMoneda && r.moneda !== fMoneda) return false;
+    if(fStatus && r.status !== fStatus) return false;
+    return true;
+  });
+}
+function val(id){ var el=document.getElementById(id); return el?el.value:""; }
+
+/* ---------- render ---------- */
+function renderAll(){
+  var data = getFiltered();
+  var now = new Date();
+  var html = renderKpis(data) +
+    renderMontosPorMoneda(data, now) +
+    '<div class="grid-2 section">' +
+      card("Solicitudes por Mes", renderBarsObj(countByMonth(data), "blue")) +
+      card("Solicitudes por Usuario", renderBarsObj(countBy(data,"usuario"), "green", 10)) +
+      card("Solicitudes por Head", renderBarsObj(countBy(data,"head"), "orange")) +
+      card("Proveedores - Cantidad de Solicitudes", renderBarsObj(countBy(data,"proveedor"), "blue", 15)) +
+    '</div>' +
+    '<section class="section"><h2>Promedio de Gasto Mensual por Proveedor</h2><div class="hint">Promedio = gasto total del proveedor (en su moneda) / cantidad de meses del período filtrado con datos en esa moneda.</div>' + renderPromedioTable(data,"proveedor") + '</section>' +
+    '<section class="section"><h2>Promedio de Gasto Mensual por Head</h2><div class="hint">Promedio = gasto total del head (en su moneda) / cantidad de meses del período filtrado con datos en esa moneda.</div>' + renderPromedioTable(data,"head") + '</section>' +
+    '<section class="section"><h2>Detalle de Solicitudes ('+data.length+')</h2>' + renderDetailTable(data) + '</section>';
+  document.getElementById("content").className = "";
+  document.getElementById("content").innerHTML = html;
+}
+
+function card(title, body){
+  return '<div class="card"><h3>'+esc(title)+'</h3>'+(body || '<div class="empty">Sin datos</div>')+'</div>';
+}
+
+function renderKpis(data){
+  var proveedores = {}, usuarios = {}, heads = {};
+  data.forEach(function(r){ proveedores[r.proveedor]=1; usuarios[r.usuario]=1; heads[r.head]=1; });
+  return '<div class="kpi-grid">' +
+    kpiCard("blue","Solicitudes", data.length, "en el período filtrado") +
+    kpiCard("green","Proveedores Únicos", Object.keys(proveedores).length, "") +
+    kpiCard("orange","Usuarios Únicos", Object.keys(usuarios).length, "") +
+    kpiCard("red","Heads Únicos", Object.keys(heads).length, "") +
+    '</div>';
+}
+function kpiCard(color,label,value,sub){
+  return '<div class="kpi-card '+color+'"><div class="kpi-label">'+esc(label)+'</div><div class="kpi-value">'+value+'</div><div class="kpi-sub">'+esc(sub)+'</div></div>';
+}
+
+function renderMontosPorMoneda(data, now){
+  var monedas = uniqueSorted(data, "moneda");
+  if(!monedas.length) return '<section class="section"><h2>Montos por Moneda</h2><div class="empty">Sin datos</div></section>';
+  var curQ = Math.floor(now.getMonth()/3);
+  var rows = monedas.map(function(m){
+    var rs = data.filter(function(r){return r.moneda===m && r.importe!=null;});
+    var mes = sumWhere(rs, function(d){return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();});
+    var trim = sumWhere(rs, function(d){return d.getFullYear()===now.getFullYear() && Math.floor(d.getMonth()/3)===curQ;});
+    var anio = sumWhere(rs, function(d){return d.getFullYear()===now.getFullYear();});
+    return '<tr><td><strong>'+esc(m)+'</strong></td><td>'+fmtMoney(mes,m)+'</td><td>'+fmtMoney(trim,m)+'</td><td>'+fmtMoney(anio,m)+'</td></tr>';
+  }).join("");
+  return '<section class="section"><h2>Montos por Moneda</h2><div class="hint">Mes/Trimestre/Año actual según la fecha de hoy ('+now.toLocaleDateString("es-MX")+').</div>' +
+    '<div class="table-wrap"><table><thead><tr><th>Moneda</th><th>Mes Actual</th><th>Trimestre Actual</th><th>Año Actual</th></tr></thead><tbody>'+rows+'</tbody></table></div></section>';
+}
+function sumWhere(rows, pred){
+  var t=0;
+  rows.forEach(function(r){ if(pred(new Date(r.fecha))) t += r.importe; });
+  return t;
+}
+
+function countBy(data, key){
+  var g = {};
+  data.forEach(function(r){ var k=r[key]||"Sin asignar"; g[k]=(g[k]||0)+1; });
+  return g;
+}
+function countByMonth(data){
+  var g = {};
+  data.forEach(function(r){
+    var d = new Date(r.fecha);
+    var k = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");
+    g[k]=(g[k]||0)+1;
+  });
+  return g;
+}
+function renderBarsObj(obj, color, limit){
+  var entries = Object.entries(obj).sort(function(a,b){
+    if(/^\d{4}-\d{2}$/.test(a[0])) return a[0]<b[0]?-1:1; // meses en orden cronológico
+    return b[1]-a[1];
+  });
+  if(limit) entries = entries.slice(0, limit);
+  if(!entries.length) return "";
+  var max = Math.max.apply(null, entries.map(function(e){return e[1];}));
+  return entries.map(function(e){
+    var label = /^\d{4}-\d{2}$/.test(e[0]) ? mesNombre(e[0].split("-")[1]) + " " + e[0].split("-")[0] : e[0];
+    var w = max ? Math.round(e[1]/max*100) : 0;
+    return '<div class="bar-item"><div class="bar-label"><span>'+esc(label)+'</span><span>'+e[1]+'</span></div><div class="bar-track"><div class="bar-fill '+color+'" style="width:'+w+'%"></div></div></div>';
+  }).join("");
+}
+
+function renderPromedioTable(data, key){
+  var monedas = uniqueSorted(data, "moneda");
+  var mesesPorMoneda = {};
+  monedas.forEach(function(m){
+    var s = {};
+    data.filter(function(r){return r.moneda===m;}).forEach(function(r){
+      var d = new Date(r.fecha);
+      s[d.getFullYear()+"-"+d.getMonth()] = true;
+    });
+    mesesPorMoneda[m] = Math.max(Object.keys(s).length, 1);
+  });
+  var groups = {};
+  data.forEach(function(r){
+    if(r.importe==null) return;
+    var k = (r[key]||"Sin asignar") + "||" + r.moneda;
+    groups[k] = (groups[k]||0) + r.importe;
+  });
+  var rows = Object.entries(groups).map(function(e){
+    var parts = e[0].split("||");
+    var nombre = parts[0], moneda = parts[1];
+    var total = e[1];
+    var meses = mesesPorMoneda[moneda] || 1;
+    return {nombre:nombre, moneda:moneda, total:total, meses:meses, promedio: total/meses};
+  }).sort(function(a,b){ return b.total - a.total; });
+  if(!rows.length) return '<div class="empty">Sin datos</div>';
+  var body = rows.map(function(r){
+    return '<tr><td>'+esc(r.nombre)+'</td><td>'+esc(r.moneda)+'</td><td>'+fmtMoney(r.total,r.moneda)+'</td><td>'+r.meses+'</td><td>'+fmtMoney(r.promedio,r.moneda)+'</td></tr>';
+  }).join("");
+  var titulo = key==="proveedor" ? "Proveedor" : "Head";
+  return '<div class="table-wrap"><table><thead><tr><th>'+titulo+'</th><th>Moneda</th><th>Gasto Total</th><th>Meses en el período</th><th>Promedio Mensual</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function renderDetailTable(rows){
+  if(!rows.length) return '<div class="empty">Sin solicitudes para los filtros aplicados</div>';
+  var sorted = rows.slice().sort(function(a,b){ return new Date(b.fecha) - new Date(a.fecha); });
+  var head = '<tr><th>Fecha</th><th>Usuario</th><th>Head</th><th>Proveedor</th><th>Categoría</th><th>Importe</th><th>Status</th><th>OC</th><th>PR</th><th>Título</th></tr>';
+  var body = sorted.map(function(r){
+    return '<tr>' +
+      '<td>'+fmtDate(r.fecha)+'</td>' +
+      '<td>'+esc(r.usuario||r.email)+'</td>' +
+      '<td>'+esc(r.head)+'</td>' +
+      '<td>'+esc(r.proveedor)+'</td>' +
+      '<td>'+esc(r.categoria)+'</td>' +
+      '<td>'+fmtMoney(r.importe, r.moneda)+'</td>' +
+      '<td>'+statusBadge(r.status)+'</td>' +
+      '<td>'+esc(r.oc)+'</td>' +
+      '<td>'+esc(r.pr)+'</td>' +
+      '<td>'+esc(r.titulo)+'</td>' +
+    '</tr>';
+  }).join("");
+  return '<div class="table-wrap"><table><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div>';
+}
+function statusBadge(s){
+  var cls = "otro";
+  var low = (s||"").toLowerCase();
+  if(low.indexOf("pendiente")!==-1) cls = "pend";
+  else if(low.indexOf("oc")!==-1 || low.indexOf("enviada")!==-1) cls = "enviada";
+  return '<span class="badge '+cls+'">'+esc(s||"-")+'</span>';
+}
+
+/* ---------- helpers ---------- */
+function fmtMoney(n, moneda){
+  if(n==null || isNaN(n)) return "-";
+  try{
+    return new Intl.NumberFormat("es-MX", {style:"currency", currency: moneda || "MXN", maximumFractionDigits:0}).format(n);
+  }catch(e){
+    return n.toLocaleString("es-MX",{maximumFractionDigits:0}) + " " + (moneda||"");
+  }
+}
+function fmtDate(iso){
+  var d = new Date(iso);
+  return d.toLocaleDateString("es-MX") + " " + d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+}
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+loadData();
+</script>
+</body>
+</html>
