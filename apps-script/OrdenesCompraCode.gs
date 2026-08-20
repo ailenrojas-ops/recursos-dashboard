@@ -20,7 +20,7 @@ function doGet(e) {
 // Tipos de cambio de referencia (unidades de moneda local por 1 USD),
 // usados solo si falla la consulta a la API de tipos de cambio históricos.
 // Actualizar cada tanto para que el fallback no quede muy desactualizado.
-var FALLBACK_RATES_ = { MXN: 18.5, BRL: 5.6, ARS: 1000, USD: 1 };
+var FALLBACK_RATES_ = { MXN: 18.5, BRL: 5.6, ARS: 1000, CLP: 950, USD: 1 };
 
 /**
  * Devuelve el tipo de cambio "de cierre" de un mes: el vigente al último día
