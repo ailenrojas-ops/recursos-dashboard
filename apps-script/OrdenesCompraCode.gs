@@ -1,20 +1,39 @@
 /**
  * Backend para el Dashboard de Solicitudes de Orden de Compra.
- * Pegar este código en Extensiones > Apps Script del Google Sheet
- * (el mismo spreadsheet que contiene la solapa de "Respuestas"),
- * y publicarlo como Web App (Implementar > Nueva implementación > Aplicación web):
- *   - Ejecutar como: Yo
- *   - Quién tiene acceso: Cualquier usuario de mercadolibre.com (o el que corresponda)
- * Luego copiar la URL /exec resultante en ordenes-compra.html (variable API_URL).
+ * Setup (en el Google Sheet que tiene la solapa "Respuestas"):
+ *   1. Extensiones > Apps Script.
+ *   2. Pegar este archivo como Code.gs.
+ *   3. Archivo > Nuevo > Archivo HTML, nombrarlo "Dashboard", y pegar el
+ *      contenido de apps-script/Dashboard.html.
+ *   4. Implementar > Nueva implementación (o editar la existente) >
+ *      Aplicación web: Ejecutar como "Yo", Acceso "Cualquier usuario de
+ *      [tu dominio]".
+ *   5. Abrir la URL /exec: sirve el dashboard directamente (mismo origen,
+ *      sin problemas de CORS con el acceso restringido al dominio).
+ *
+ * doGet sirve el HTML del dashboard. getDashboardData() es la función que
+ * el HTML llama vía google.script.run para traer los datos (sin fetch/CORS,
+ * usa el canal interno de Apps Script). Se deja doGet(?format=json) como
+ * endpoint JSON alternativo, por si se necesita consumir desde otro lado.
  */
 
 function doGet(e) {
-  try {
-    var result = getPurchaseRequests_();
-    return jsonOutput_({ ok: true, data: result.rows, fxByMonth: result.fxByMonth });
-  } catch (err) {
-    return jsonOutput_({ ok: false, error: err.message });
+  if (e && e.parameter && e.parameter.format === "json") {
+    try {
+      var result = getPurchaseRequests_();
+      return jsonOutput_({ ok: true, data: result.rows, fxByMonth: result.fxByMonth });
+    } catch (err) {
+      return jsonOutput_({ ok: false, error: err.message });
+    }
   }
+  return HtmlService.createHtmlOutputFromFile("Dashboard")
+    .setTitle("Dashboard - Solicitudes de Orden de Compra")
+    .addMetaTag("viewport", "width=device-width, initial-scale=1");
+}
+
+function getDashboardData() {
+  var result = getPurchaseRequests_();
+  return { data: result.rows, fxByMonth: result.fxByMonth };
 }
 
 // Tipos de cambio de referencia (unidades de moneda local por 1 USD),
