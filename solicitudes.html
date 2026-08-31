@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de Solicitudes - Ordenes de Compra</title>
+<style>
+:root{
+  color-scheme: light;
+  --surface-1:#fcfcfb; --page:#f9f9f7; --card-border:rgba(11,11,11,.10);
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7;
+  --blue:#2a78d6; --orange:#eb6834; --aqua:#1baf7a; --violet:#4a3aa7;
+  --blue-wash:rgba(42,120,214,.10); --aqua-wash:rgba(27,175,122,.10); --violet-wash:rgba(74,58,167,.10);
+  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --surface-1:#1a1a19; --page:#0d0d0d; --card-border:rgba(255,255,255,.10);
+    --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+    --grid:#2c2c2a; --axis:#383835;
+    --blue:#3987e5; --orange:#d95926; --aqua:#199e70; --violet:#9085e9;
+    --blue-wash:rgba(57,135,229,.14); --aqua-wash:rgba(25,158,112,.14); --violet-wash:rgba(144,133,233,.14);
+    --good:#0ca30c;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-1:#1a1a19; --page:#0d0d0d; --card-border:rgba(255,255,255,.10);
+  --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+  --grid:#2c2c2a; --axis:#383835;
+  --blue:#3987e5; --orange:#d95926; --aqua:#199e70; --violet:#9085e9;
+  --blue-wash:rgba(57,135,229,.14); --aqua-wash:rgba(25,158,112,.14); --violet-wash:rgba(144,133,233,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--text-primary)}
+header{background:linear-gradient(135deg,#1a1a2e,#16213e);color:#fff;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header h1{font-size:20px;font-weight:600}
+#lastUpdate{font-size:12px;opacity:.65;margin-top:4px}
+.header-actions{display:flex;gap:10px;align-items:center}
+button,select{font-family:inherit}
+#themeBtn,#refreshBtn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px}
+main{padding:24px 32px 48px;max-width:1320px;margin:0 auto}
+.filters-row{display:flex;align-items:center;gap:14px;margin-bottom:20px;background:var(--surface-1);border:1px solid var(--card-border);border-radius:10px;padding:12px 16px}
+.filters-row label{font-size:12px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.filters-row select{padding:6px 10px;border-radius:6px;border:1px solid var(--axis);background:var(--surface-1);color:var(--text-primary);font-size:13px}
+.note{font-size:12px;color:var(--text-muted);margin-left:auto}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:16px;margin-bottom:28px}
+.kpi-card{background:var(--surface-1);border:1px solid var(--card-border);border-radius:12px;padding:18px 22px;border-left:4px solid var(--blue)}
+.kpi-card.aqua{border-left-color:var(--aqua)}
+.kpi-card.violet{border-left-color:var(--violet)}
+.kpi-label{font-size:12px;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em;margin-bottom:8px}
+.kpi-value{font-size:32px;font-weight:600}
+.kpi-sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.section{margin-bottom:26px}
+.section h2{font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--grid);text-transform:uppercase;letter-spacing:.03em}
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px}
+.chart-card{background:var(--surface-1);border:1px solid var(--card-border);border-radius:12px;padding:18px 20px 8px;position:relative}
+.chart-card h3{font-size:13px;font-weight:600;margin-bottom:2px}
+.chart-card .caption{font-size:11px;color:var(--text-muted);margin-bottom:10px}
+.chart-svg{width:100%;height:220px;overflow:visible}
+.bar-rect{cursor:pointer;transition:opacity .1s}
+.bar-hit:hover + .bar-rect, .bar-rect:hover{opacity:.82}
+.gridline{stroke:var(--grid);stroke-width:1}
+.axis-label{fill:var(--text-muted);font-size:10px}
+.value-label{fill:var(--text-secondary);font-size:10px;font-weight:600}
+.tooltip{position:absolute;pointer-events:none;background:var(--text-primary);color:var(--page);font-size:12px;padding:6px 10px;border-radius:6px;transform:translate(-50%,-100%);white-space:nowrap;opacity:0;transition:opacity .08s;z-index:5}
+.tooltip .tt-val{font-weight:700}
+.table-toggle{font-size:11px;color:var(--text-muted);background:none;border:none;cursor:pointer;text-decoration:underline;padding:6px 0 10px}
+.chart-table{width:100%;font-size:12px;border-collapse:collapse;display:none;margin-bottom:10px}
+.chart-table.show{display:table}
+.chart-table th,.chart-table td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--grid);color:var(--text-secondary)}
+.dq-banner{background:var(--violet-wash);border:1px solid var(--card-border);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--text-secondary)}
+#errorMsg{background:#fee2e2;color:#991b1b;padding:16px;border-radius:8px;margin-bottom:20px;display:none}
+.loading{text-align:center;padding:60px;color:var(--text-muted)}
+.setup-banner{background:#fffbeb;border:1px solid #f59e0b;border-radius:10px;padding:20px 24px;margin-bottom:24px}
+.setup-banner h3{color:#92400e;font-size:14px;margin-bottom:8px}
+.setup-banner p{color:#78350f;font-size:13px;line-height:1.6}
+.setup-banner code{background:#fef3c7;padding:2px 6px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dashboard de Solicitudes de Compra</h1>
+    <div id="lastUpdate">Cargando datos...</div>
+  </div>
+  <div class="header-actions">
+    <button id="themeBtn" onclick="toggleTheme()">Modo oscuro</button>
+    <button id="refreshBtn" onclick="loadData()">Actualizar</button>
+  </div>
+</header>
+<main>
+  <div id="errorMsg"></div>
+  <div id="content" class="loading">Cargando...</div>
+</main>
+<div id="tooltip" class="tooltip"></div>
+<script>
+var API_URL = "PEGAR_URL_APPS_SCRIPT_AQUI";
+var STATE = { rows: [], year: 'todos' };
+var MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function toggleTheme(){
+  var cur = document.documentElement.getAttribute('data-theme');
+  if(cur === 'dark'){ document.documentElement.removeAttribute('data-theme'); document.getElementById('themeBtn').textContent='Modo oscuro'; }
+  else { document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent='Modo claro'; }
+}
+
+function loadData(){
+  if(API_URL === "PEGAR_URL_APPS_SCRIPT_AQUI"){
+    document.getElementById("content").innerHTML='<div class="setup-banner"><h3>Falta conectar el Apps Script</h3><p>1. Abrir la planilla de Solicitudes &gt; Extensiones &gt; Apps Script<br>2. Pegar el codigo de <code>apps-script/solicitudes.gs</code> y publicarlo como Aplicacion web<br>3. Reemplazar <code>PEGAR_URL_APPS_SCRIPT_AQUI</code> en este archivo con la URL que te dio Google</p></div>';
+    document.getElementById("lastUpdate").textContent = "Sin conectar";
+    return;
+  }
+  document.getElementById("refreshBtn").textContent = "Actualizando...";
+  fetch(API_URL).then(function(r){ return r.json(); }).then(function(res){
+    if(!res.ok) throw new Error(res.error);
+    STATE.rows = res.data.rows;
+    STATE.meta = res.data.meta;
+    populateYearFilter();
+    render();
+    document.getElementById("lastUpdate").textContent = "Actualizado: " + new Date().toLocaleString("es-AR");
+    document.getElementById("refreshBtn").textContent = "Actualizar";
+    document.getElementById("errorMsg").style.display = "none";
+  }).catch(function(err){
+    document.getElementById("errorMsg").style.display = "block";
+    document.getElementById("errorMsg").textContent = "Error: " + err.message;
+    document.getElementById("refreshBtn").textContent = "Actualizar";
+  });
+}
+
+function dateOf(iso){ return iso ? new Date(iso) : null; }
+
+function populateYearFilter(){
+  var years = new Set();
+  STATE.rows.forEach(function(r){
+    var d1 = dateOf(r.marcaTemporal); if(d1) years.add(d1.getFullYear());
+    var d2 = dateOf(r.periodoServicio); if(d2) years.add(d2.getFullYear());
+  });
+  var sorted = Array.from(years).filter(function(y){ return y >= 2020 && y <= 2100; }).sort();
+  var sel = document.getElementById('yearFilter');
+  if(!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="todos">Todos</option>' + sorted.map(function(y){ return '<option value="'+y+'">'+y+'</option>'; }).join('');
+  sel.value = sorted.indexOf(new Date().getFullYear()) !== -1 ? String(new Date().getFullYear()) : 'todos';
+  if(current) sel.value = current;
+}
+
+function render(){
+  var html = ''+
+    '<div class="filters-row">'+
+      '<label>Año</label>'+
+      '<select id="yearFilter" onchange="onYearChange()"></select>'+
+      '<span class="note">Solicitudes/solicitantes por fecha de solicitud &middot; Gasto por período de servicio &middot; excluye retiradas</span>'+
+    '</div>'+
+    '<div id="dqBanner"></div>'+
+    '<div id="kpis" class="kpi-grid"></div>'+
+    '<section class="section"><h2>Solicitudes y gasto por mes</h2><div class="chart-grid" id="charts"></div></section>';
+  document.getElementById('content').innerHTML = html;
+  populateYearFilter();
+  document.getElementById('yearFilter').value = STATE.year;
+  computeAndRender();
+}
+
+function onYearChange(){
+  STATE.year = document.getElementById('yearFilter').value;
+  computeAndRender();
+}
+
+function computeAndRender(){
+  var year = STATE.year;
+  var rows = STATE.rows;
+
+  var recibidas = rows.filter(function(r){ var d=dateOf(r.marcaTemporal); return d && (year==='todos' || d.getFullYear()===Number(year)); });
+  var gasto = rows.filter(function(r){ var d=dateOf(r.periodoServicio); return d && (year==='todos' || d.getFullYear()===Number(year)); });
+
+  var monthKeyRecibidas = {}, monthKeyGasto = {}, monthKeyReq = {};
+  recibidas.forEach(function(r){
+    var d = dateOf(r.marcaTemporal);
+    var k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    monthKeyRecibidas[k] = (monthKeyRecibidas[k]||0) + 1;
+    var reqKey = (r.representante||'').trim().toLowerCase();
+    if(reqKey){ monthKeyReq[k] = monthKeyReq[k] || new Set(); monthKeyReq[k].add(reqKey); }
+  });
+  gasto.forEach(function(r){
+    var d = dateOf(r.periodoServicio);
+    var k = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    if(r.importeUSD !== null && r.importeUSD !== undefined){
+      monthKeyGasto[k] = (monthKeyGasto[k]||0) + r.importeUSD;
+    }
+  });
+
+  var recibidasMonths = Object.keys(monthKeyRecibidas).sort();
+  var gastoMonths = Object.keys(monthKeyGasto).sort();
+  var solLabels = recibidasMonths.map(monthLabel);
+  var solValues = recibidasMonths.map(function(k){ return monthKeyRecibidas[k]||0; });
+  var reqValues = recibidasMonths.map(function(k){ return monthKeyReq[k] ? monthKeyReq[k].size : 0; });
+  var gastoLabels = gastoMonths.map(monthLabel);
+  var gastoValues = gastoMonths.map(function(k){ return Math.round((monthKeyGasto[k]||0)); });
+
+  var totalSolicitudes = recibidas.length;
+  var mesesConDatos = recibidasMonths.length || 1;
+  var avgSolicitudes = totalSolicitudes / mesesConDatos;
+  var avgSolicitantes = recibidasMonths.reduce(function(sum,k){ return sum + (monthKeyReq[k]?monthKeyReq[k].size:0); },0) / mesesConDatos;
+  var totalGastoUSD = gasto.reduce(function(sum,r){ return sum + (r.importeUSD||0); },0);
+
+  document.getElementById('kpis').innerHTML =
+    kpiCard('blue','Total solicitudes'+(year!=='todos'?' '+year:' (todos los años)'), fmtInt(totalSolicitudes), 'excluye retiradas')+
+    kpiCard('blue','Promedio mensual de solicitudes', fmtDec(avgSolicitudes), 'sobre '+mesesConDatos+' mes(es) con datos')+
+    kpiCard('aqua','Promedio mensual de solicitantes', fmtDec(avgSolicitantes), 'usuarios distintos en representación')+
+    kpiCard('violet','Gasto total USD', fmtUSD(totalGastoUSD), year!=='todos'?('período de servicio '+year):'todo el histórico');
+
+  var dq = STATE.meta || {};
+  var fxMissCount = Object.keys(dq.fxNoDisponible||{}).length;
+  var dqParts = [];
+  if(dq.excluidasRetirada) dqParts.push(dq.excluidasRetirada+' solicitudes excluidas por estar retiradas');
+  if(dq.montoInvalido) dqParts.push(dq.montoInvalido+' con importe sin formato reconocible');
+  if(fxMissCount) dqParts.push(fxMissCount+' combinación(es) moneda/mes sin cotización disponible (excluidas del gasto)');
+  document.getElementById('dqBanner').innerHTML = dqParts.length ? '<div class="dq-banner">'+dqParts.join(' &middot; ')+'</div>' : '';
+
+  document.getElementById('charts').innerHTML =
+    chartCard('c1','Solicitudes recibidas por mes', 'por fecha de solicitud', 'var(--blue)')+
+    chartCard('c2','Solicitantes distintos por mes', 'usuarios en representación, por fecha de solicitud', 'var(--aqua)')+
+    chartCard('c3','Gasto mensual total (USD)', 'convertido al cierre de mes del período de servicio', 'var(--violet)');
+
+  drawColumnChart('c1', solLabels, solValues, '--blue', function(v){ return fmtInt(v); });
+  drawColumnChart('c2', solLabels, reqValues, '--aqua', function(v){ return fmtInt(v); });
+  drawColumnChart('c3', gastoLabels, gastoValues, '--violet', function(v){ return fmtUSD(v); });
+}
+
+function monthLabel(k){
+  var parts = k.split('-'); return MESES[Number(parts[1])-1] + " '" + parts[0].slice(2);
+}
+
+function kpiCard(color,label,value,sub){
+  var cls = color === 'blue' ? '' : ' ' + color;
+  return '<div class="kpi-card'+cls+'"><div class="kpi-label">'+escapeHtml(label)+'</div><div class="kpi-value">'+escapeHtml(value)+'</div><div class="kpi-sub">'+escapeHtml(sub)+'</div></div>';
+}
+
+function chartCard(id,title,caption,color){
+  return '<div class="chart-card">'+
+    '<h3>'+escapeHtml(title)+'</h3><div class="caption">'+escapeHtml(caption)+'</div>'+
+    '<svg class="chart-svg" id="svg-'+id+'"></svg>'+
+    '<button class="table-toggle" onclick="toggleTable(\''+id+'\')">Ver tabla</button>'+
+    '<table class="chart-table" id="table-'+id+'"></table>'+
+  '</div>';
+}
+
+function toggleTable(id){
+  document.getElementById('table-'+id).classList.toggle('show');
+}
+
+function fmtInt(n){ return Math.round(n).toLocaleString('es-AR'); }
+function fmtDec(n){ return (Math.round(n*10)/10).toLocaleString('es-AR',{minimumFractionDigits:1,maximumFractionDigits:1}); }
+function fmtUSD(n){
+  if(Math.abs(n) >= 1000000) return '$'+(n/1000000).toLocaleString('es-AR',{maximumFractionDigits:1})+'M';
+  if(Math.abs(n) >= 1000) return '$'+(n/1000).toLocaleString('es-AR',{maximumFractionDigits:1})+'K';
+  return '$'+Math.round(n).toLocaleString('es-AR');
+}
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+function drawColumnChart(id, labels, values, colorVar, fmt){
+  var svg = document.getElementById('svg-'+id);
+  var table = document.getElementById('table-'+id);
+  var n = values.length;
+  var W = svg.clientWidth || 360, H = 220;
+  var padL = 34, padR = 8, padT = 18, padB = 24;
+  var plotW = W - padL - padR, plotH = H - padT - padB;
+  var maxV = Math.max.apply(null, values.concat([1]));
+  var niceMax = niceNumber(maxV);
+  var color = getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim() || '#2a78d6';
+
+  var slot = plotW / Math.max(n,1);
+  var barW = Math.max(4, Math.min(24, slot - 6));
+  var maxLabels = Math.max(1, Math.floor(plotW / 48));
+  var labelStride = Math.max(1, Math.ceil(n / maxLabels));
+  var shownLabels = [];
+  for(var li=0; li<n; li+=labelStride) shownLabels.push(li);
+  if(n > 0 && shownLabels[shownLabels.length-1] !== n-1){
+    if(n-1 - shownLabels[shownLabels.length-1] >= labelStride) shownLabels.push(n-1);
+    else shownLabels[shownLabels.length-1] = n-1;
+  }
+  var shownLabelSet = {}; shownLabels.forEach(function(i){ shownLabelSet[i] = true; });
+
+  var svgns = 'http://www.w3.org/2000/svg';
+  while(svg.firstChild) svg.removeChild(svg.firstChild);
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.setAttribute('preserveAspectRatio','none');
+
+  // gridlines (0, mid, max)
+  [0,0.5,1].forEach(function(f){
+    var y = padT + plotH * (1-f);
+    var line = document.createElementNS(svgns,'line');
+    line.setAttribute('x1',padL); line.setAttribute('x2',W-padR);
+    line.setAttribute('y1',y); line.setAttribute('y2',y);
+    line.setAttribute('class','gridline');
+    svg.appendChild(line);
+    var lbl = document.createElementNS(svgns,'text');
+    lbl.setAttribute('x', padL-6); lbl.setAttribute('y', y+3);
+    lbl.setAttribute('text-anchor','end'); lbl.setAttribute('class','axis-label');
+    lbl.textContent = compactNum(niceMax*f);
+    svg.appendChild(lbl);
+  });
+
+  var tableRows = '<thead><tr><th>Mes</th><th>Valor</th></tr></thead><tbody>';
+
+  values.forEach(function(v, i){
+    var x = padL + i*slot + (slot-barW)/2;
+    var barH = niceMax > 0 ? (v/niceMax) * plotH : 0;
+    var y = padT + plotH - barH;
+    var r = 4;
+
+    var hit = document.createElementNS(svgns,'rect');
+    hit.setAttribute('x', padL + i*slot); hit.setAttribute('y', padT);
+    hit.setAttribute('width', slot); hit.setAttribute('height', plotH);
+    hit.setAttribute('fill','transparent'); hit.setAttribute('class','bar-hit');
+    hit.style.cursor = 'pointer';
+
+    var path = document.createElementNS(svgns,'path');
+    var rr = Math.min(r, barH);
+    var d;
+    if(barH <= 0){ d = 'M '+x+' '+(padT+plotH)+' L '+(x+barW)+' '+(padT+plotH)+' Z'; }
+    else {
+      d = 'M '+x+','+(y+rr)+
+          ' Q '+x+','+y+' '+(x+rr)+','+y+
+          ' L '+(x+barW-rr)+','+y+
+          ' Q '+(x+barW)+','+y+' '+(x+barW)+','+(y+rr)+
+          ' L '+(x+barW)+','+(padT+plotH)+
+          ' L '+x+','+(padT+plotH)+' Z';
+    }
+    path.setAttribute('d', d);
+    path.setAttribute('fill', color);
+    path.setAttribute('class','bar-rect');
+
+    var showLabel = (i === values.length-1) || (v === maxV && maxV > 0);
+    if(showLabel && v > 0){
+      var lbl = document.createElementNS(svgns,'text');
+      lbl.setAttribute('x', x+barW/2); lbl.setAttribute('y', Math.max(padT+9, y-5));
+      lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('class','value-label');
+      lbl.textContent = fmt(v);
+      svg.appendChild(lbl);
+    }
+
+    var xlbl = document.createElementNS(svgns,'text');
+    xlbl.setAttribute('x', x+barW/2); xlbl.setAttribute('y', H-6);
+    xlbl.setAttribute('text-anchor','middle'); xlbl.setAttribute('class','axis-label');
+    xlbl.textContent = shownLabelSet[i] ? labels[i] : '';
+    svg.appendChild(xlbl);
+
+    svg.appendChild(path);
+    svg.appendChild(hit);
+
+    var tooltip = document.getElementById('tooltip');
+    hit.addEventListener('pointermove', function(ev){
+      tooltip.style.opacity = 1;
+      tooltip.style.left = ev.pageX + 'px';
+      tooltip.style.top = (ev.pageY - 10) + 'px';
+      tooltip.innerHTML = escapeHtml(labels[i]) + ': <span class="tt-val">'+escapeHtml(fmt(v))+'</span>';
+    });
+    hit.addEventListener('pointerleave', function(){ tooltip.style.opacity = 0; });
+
+    tableRows += '<tr><td>'+escapeHtml(labels[i])+'</td><td>'+escapeHtml(fmt(v))+'</td></tr>';
+  });
+
+  table.innerHTML = tableRows + '</tbody>';
+}
+
+function niceNumber(v){
+  if(v <= 0) return 1;
+  var exp = Math.pow(10, Math.floor(Math.log10(v)));
+  var f = v / exp;
+  var nf = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return nf * exp;
+}
+function compactNum(v){
+  if(Math.abs(v) >= 1000000) return (v/1000000)+'M';
+  if(Math.abs(v) >= 1000) return (v/1000)+'K';
+  return Math.round(v).toLocaleString('es-AR');
+}
+
+window.addEventListener('resize', function(){ if(STATE.rows.length) computeAndRender(); });
+loadData();
+</script>
+</body>
+</html>
