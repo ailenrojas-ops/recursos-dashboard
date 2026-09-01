@@ -194,7 +194,9 @@ function renderAll(){
   document.getElementById("content").innerHTML = html;
   document.getElementById("contentContratos").innerHTML =
     renderContratosKpis(data) +
-    '<section class="section"><h2>Fuera de Contrato Marco (candidatos)</h2><div class="hint">Solicitudes sin contrato marco donde proveedor, sociedad y moneda coinciden con al menos otra solicitud del período filtrado: posibles candidatos a formalizar en un contrato marco.</div>' + renderFueraDeCmTable(data) + '</section>' +
+    '<section class="section"><h2>Fuera de Contrato Marco (candidatos)</h2><div class="hint">Solicitudes sin contrato marco donde proveedor, sociedad y moneda coinciden con al menos otra solicitud del período filtrado: posibles candidatos a formalizar en un contrato marco.</div>' +
+      '<button class="filter-reset" style="margin-bottom:14px" onclick="exportFueraDeCmCsv()">Exportar CSV</button>' +
+      renderFueraDeCmTable(data) + '</section>' +
     '<section class="section"><h2>Resumen Contratos Marco</h2>' + renderContratosMarco(data) + '</section>';
   document.getElementById("tabsBar").style.display = "flex";
 }
@@ -203,12 +205,8 @@ function renderContratosKpis(data){
   var contratos = {};
   data.forEach(function(r){ if(r.contratoMarco) contratos[r.contratoMarco] = true; });
   var cantidadContratos = Object.keys(contratos).length;
-  var fuera = fueraDeCmGrupos(data);
-  var gruposFuera = {};
-  fuera.forEach(function(r){ gruposFuera[r.proveedor+"||"+(r.sociedad||"")+"||"+r.moneda] = true; });
   return '<div class="kpi-grid">' +
     kpiCard("blue","Contratos Marco Creados", cantidadContratos, "contratos distintos en el período filtrado") +
-    kpiCard("red","Por Fuera de CM", fuera.length, Object.keys(gruposFuera).length + " combinación(es) proveedor/sociedad/moneda repetidas sin contrato") +
     '</div>';
 }
 
@@ -227,17 +225,47 @@ function fueraDeCmGrupos(data){
   return rows;
 }
 
-function renderFueraDeCmTable(data){
-  var rows = fueraDeCmGrupos(data).slice().sort(function(a,b){
+function getFueraDeCmSorted(data){
+  return fueraDeCmGrupos(data).slice().sort(function(a,b){
     var ka = a.proveedor+"|"+(a.sociedad||"")+"|"+a.moneda, kb = b.proveedor+"|"+(b.sociedad||"")+"|"+b.moneda;
     if (ka !== kb) return ka < kb ? -1 : 1;
     return new Date(a.fecha) - new Date(b.fecha);
   });
+}
+
+function renderFueraDeCmTable(data){
+  var rows = getFueraDeCmSorted(data);
   if (!rows.length) return '<div class="empty">No se encontraron solicitudes repetidas (mismo proveedor/sociedad/moneda) sin contrato marco</div>';
   var body = rows.map(function(r){
-    return '<tr><td>'+esc(r.proveedor)+'</td><td>'+esc(r.sociedad||"-")+'</td><td>'+esc(r.moneda)+'</td><td>'+fmtMoney(r.importe,r.moneda)+'</td><td>'+(r.periodo?fmtDateOnly(r.periodo):"-")+'</td><td>'+fmtDate(r.fecha)+'</td></tr>';
+    return '<tr><td>'+esc(r.proveedor)+'</td><td>'+esc(r.sociedad||"-")+'</td><td>'+esc(r.moneda)+'</td><td>'+fmtMoney(r.importe,r.moneda)+'</td><td>'+(r.periodo?fmtDateOnly(r.periodo):"-")+'</td><td>'+fmtDate(r.fecha)+'</td><td>'+esc(r.usuario||r.email||"-")+'</td><td>'+esc(r.head||"-")+'</td></tr>';
   }).join("");
-  return '<div class="table-wrap"><table><thead><tr><th>Proveedor</th><th>Sociedad</th><th>Moneda</th><th>Monto</th><th>Periodo</th><th>Marca Temporal</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  return '<div class="table-wrap"><table><thead><tr><th>Proveedor</th><th>Sociedad</th><th>Moneda</th><th>Monto</th><th>Periodo</th><th>Marca Temporal</th><th>Usuario</th><th>Head</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+}
+
+function exportFueraDeCmCsv(){
+  var rows = getFueraDeCmSorted(getFiltered());
+  var header = ["Proveedor","Sociedad","Moneda","Monto","Periodo","Marca Temporal","Usuario","Head"];
+  var lines = [header.map(csvEscape_).join(",")];
+  rows.forEach(function(r){
+    lines.push([
+      r.proveedor, r.sociedad||"", r.moneda, r.importe!=null?r.importe:"",
+      r.periodo?fmtDateOnly(r.periodo):"", fmtDate(r.fecha), r.usuario||r.email||"", r.head||""
+    ].map(csvEscape_).join(","));
+  });
+  var blob = new Blob(["﻿"+lines.join("\r\n")], {type:"text/csv;charset=utf-8;"});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement("a");
+  a.href = url;
+  a.download = "fuera_de_cm.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function csvEscape_(v){
+  var s = String(v==null?"":v);
+  if (/[",\n]/.test(s)) s = '"' + s.replace(/"/g,'""') + '"';
+  return s;
 }
 
 function switchTab(name, btn){
