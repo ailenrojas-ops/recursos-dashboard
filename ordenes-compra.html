@@ -191,7 +191,9 @@ function val(id){ var el=document.getElementById(id); return el?el.value:""; }
 function renderAll(){
   var data = getFiltered();
   var now = new Date();
+  var mesesConDatos = countDistinctMonths(data);
   var html = renderKpis(data) +
+    '<section class="section"><h2>Resumen por Head (USD)</h2><div class="hint">Promedio mensual = total del período filtrado / '+mesesConDatos+' mes(es) con datos.</div>' + renderHeadUsdTable(data, mesesConDatos) + '</section>' +
     renderMontosPorMoneda(data, now) +
     renderFxTable(data) +
     '<div class="grid-2 section">' +
@@ -247,18 +249,25 @@ function fmtUSD(n){
   return new Intl.NumberFormat("en-US", {style:"currency", currency:"USD", maximumFractionDigits:0}).format(n);
 }
 
+function countDistinctMonths(data){
+  var meses = {};
+  data.forEach(function(r){
+    var d = new Date(r.fecha);
+    meses[d.getFullYear()+"-"+d.getMonth()] = true;
+  });
+  return Math.max(Object.keys(meses).length, 1);
+}
+
 function renderKpis(data){
-  var proveedores = {}, usuarios = {}, heads = {}, meses = {};
+  var proveedores = {}, usuarios = {}, heads = {};
   var montoTotalUsd = 0;
   data.forEach(function(r){
     proveedores[r.proveedor]=1;
     usuarios[r.usuario||r.email]=1;
     heads[r.head]=1;
     if (r.importeUsd != null) montoTotalUsd += r.importeUsd;
-    var d = new Date(r.fecha);
-    meses[d.getFullYear()+"-"+d.getMonth()] = true;
   });
-  var mesesConDatos = Math.max(Object.keys(meses).length, 1);
+  var mesesConDatos = countDistinctMonths(data);
   var avgSolicitudesMes = data.length / mesesConDatos;
   var avgUsdMes = montoTotalUsd / mesesConDatos;
   var html = '<div class="kpi-grid">' +
@@ -273,6 +282,24 @@ function renderKpis(data){
 }
 function kpiCard(color,label,value,sub){
   return '<div class="kpi-card '+color+'"><div class="kpi-label">'+esc(label)+'</div><div class="kpi-value">'+value+'</div><div class="kpi-sub">'+esc(sub)+'</div></div>';
+}
+
+function renderHeadUsdTable(data, mesesConDatos){
+  var groups = {};
+  data.forEach(function(r){
+    var k = r.head || "Sin asignar";
+    if(!groups[k]) groups[k] = { solicitudes:0, montoUsd:0 };
+    groups[k].solicitudes += 1;
+    if(r.importeUsd != null) groups[k].montoUsd += r.importeUsd;
+  });
+  var rows = Object.keys(groups).map(function(k){
+    return { head:k, solicitudes:groups[k].solicitudes, montoUsd:groups[k].montoUsd };
+  }).sort(function(a,b){ return b.montoUsd - a.montoUsd; });
+  if(!rows.length) return '<div class="empty">Sin datos</div>';
+  var body = rows.map(function(r){
+    return '<tr><td>'+esc(r.head)+'</td><td>'+r.solicitudes+'</td><td>'+fmtNum(r.solicitudes/mesesConDatos)+'</td><td>'+fmtUSD(r.montoUsd)+'</td><td>'+fmtUSD(r.montoUsd/mesesConDatos)+'</td></tr>';
+  }).join("");
+  return '<div class="table-wrap"><table><thead><tr><th>Head</th><th>Solicitudes Totales</th><th>Promedio Mensual</th><th>Total Consumido (USD)</th><th>Promedio Consumo (USD)</th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 
 function renderMontosPorMoneda(data, now){
