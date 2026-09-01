@@ -227,3 +227,57 @@ function parseSpanishDate_(s) {
   var hh = parseInt(m[4] || "0", 10), mm = parseInt(m[5] || "0", 10), ss = parseInt(m[6] || "0", 10);
   return new Date(year, month, day, hh, mm, ss);
 }
+
+/**
+ * Publicación diaria a Grid (grid.adminml.com) — mantiene actualizado el
+ * documento estático de Grid sin depender de que un navegador le pida
+ * datos en vivo al Apps Script (lo cual falla por CORS, ver comentario
+ * de más arriba). Este código corre del lado del servidor de Google,
+ * así que UrlFetchApp no tiene ese problema.
+ *
+ * Setup:
+ *   1. En Grid, generar un token (ver getGridApiToken_ más abajo) y
+ *      guardarlo en Configuración del proyecto > Propiedades del script
+ *      con la clave GRID_TOKEN.
+ *   2. Confirmar/ajustar GRID_DOC_ID (el id del documento ya subido a Grid).
+ *   3. Crear un disparador (trigger) de tipo "Basado en tiempo" que llame
+ *      a dailyGridRefresh() una vez por día.
+ *   4. Subir apps-script/OrdenesCompraTemplate.html como un archivo HTML
+ *      más en este mismo proyecto de Apps Script (con ese nombre exacto).
+ */
+var GRID_DOC_ID = "01M1F26PZQMN55W9B3WD5BJFKE";
+var GRID_API_BASE = "https://grid.adminml.com";
+
+function dailyGridRefresh() {
+  var html = buildOrdenesCompraHtml_();
+  pushToGrid_(html);
+}
+
+function buildOrdenesCompraHtml_() {
+  var result = getPurchaseRequests_();
+  var template = HtmlService.createHtmlOutputFromFile("OrdenesCompraTemplate").getContent();
+  var dataJs =
+    "var EMBEDDED_AS_OF = " + JSON.stringify(new Date().toISOString()) + ";\n" +
+    "var EMBEDDED_DATA = " + JSON.stringify(result.rows) + ";\n" +
+    "var EMBEDDED_FX_BY_MONTH = " + JSON.stringify(result.fxByMonth) + ";";
+  return template.replace("/*__EMBEDDED_DATA__*/", dataJs);
+}
+
+function pushToGrid_(html) {
+  var token = PropertiesService.getScriptProperties().getProperty("GRID_TOKEN");
+  if (!token) throw new Error('Falta configurar la propiedad de script "GRID_TOKEN" (token de Grid).');
+
+  var blob = Utilities.newBlob(html, "text/html", "ordenes-compra.html");
+  var resp = UrlFetchApp.fetch(GRID_API_BASE + "/api/v1/documents/" + GRID_DOC_ID + "/versions", {
+    method: "post",
+    headers: { Authorization: "Bearer " + token },
+    payload: { file: blob },
+    muteHttpExceptions: true
+  });
+
+  var code = resp.getResponseCode();
+  if (code >= 300) {
+    throw new Error("Grid upload falló (" + code + "): " + resp.getContentText());
+  }
+  return JSON.parse(resp.getContentText());
+}

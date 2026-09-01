@@ -24,6 +24,27 @@ https://ailenrojas-ops.github.io/recursos-dashboard/ordenes-compra.html
 
 Tiene el mismo código/UI que `Dashboard.html`, pero con un snapshot de datos embebido (no se actualiza solo).
 
+**Versión en Grid** (`grid.adminml.com`, link corto interno de ML):
+https://grid.adminml.com/d/01M1F26PZQMN55W9B3WD5BJFKE/view
+
+Documento subido a Grid con `ordenes-compra.html`. Igual que la versión de GitHub Pages, es
+una foto fija — pero se actualiza sola una vez por día vía `dailyGridRefresh()` en
+`apps-script/OrdenesCompraCode.gs`, que genera el HTML con datos frescos (usando
+`apps-script/OrdenesCompraTemplate.html` como plantilla) y lo sube a Grid con
+`POST /api/v1/documents/{doc_id}/versions` (la llamada la hace el propio Apps Script,
+así que no choca con el bloqueo de CORS que tiene el fetch desde el navegador).
+
+Setup del refresco automático a Grid (una sola vez):
+1. En Grid, generar un token de API con scope "content" (`POST /api/v1/tokens` — alcanza con
+   correrlo una vez autenticado en el navegador, por ejemplo desde la consola de DevTools en
+   `grid.adminml.com`: `fetch('/api/v1/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'apps-script-daily-refresh'})}).then(r=>r.json()).then(console.log)`).
+2. En el editor de Apps Script → ⚙️ Configuración del proyecto → Propiedades del script →
+   agregar `GRID_TOKEN` con el valor del token (nunca pegarlo en el código ni compartirlo).
+3. Subir `apps-script/OrdenesCompraTemplate.html` como un archivo HTML más del mismo proyecto
+   (con ese nombre exacto).
+4. Editor de Apps Script → reloj (Disparadores) → Añadir disparador → función
+   `dailyGridRefresh`, evento basado en tiempo, una vez por día.
+
 ## Dashboard de Recursos Externos TA
 
 `index.html`, publicado por GitHub Pages en:
