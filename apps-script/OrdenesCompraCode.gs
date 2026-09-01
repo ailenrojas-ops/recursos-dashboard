@@ -106,9 +106,12 @@ function jsonOutput_(obj) {
 function findResponsesSheet_(ss) {
   var sheets = ss.getSheets();
   for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toLowerCase() === "solicitudes") return sheets[i];
+  }
+  for (var i = 0; i < sheets.length; i++) {
     if (/respuesta/i.test(sheets[i].getName())) return sheets[i];
   }
-  return sheets[0];
+  throw new Error('No se encontró una hoja llamada "Solicitudes" en la planilla.');
 }
 
 function getPurchaseRequests_() {
