@@ -58,6 +58,9 @@ tbody tr:hover{background:#f9fafb}
 .setup-banner p{color:#78350f;font-size:13px;line-height:1.6}
 .setup-banner code{background:#fef3c7;padding:2px 6px;border-radius:4px}
 .empty{color:#9ca3af;font-size:13px;padding:8px 0}
+.tabs{display:flex;gap:8px;margin-bottom:20px}
+.tab-btn{background:white;border:1px solid #e5e7eb;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:600;color:#6b7280;cursor:pointer}
+.tab-btn.active{background:#1a1a2e;color:white;border-color:#1a1a2e}
 </style>
 </head>
 <body>
@@ -73,7 +76,12 @@ tbody tr:hover{background:#f9fafb}
 </header>
 <main>
   <div id="errorMsg"></div>
+  <div id="tabsBar" class="tabs" style="display:none">
+    <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('contratos', this)">Resumen Contratos Marco</button>
+  </div>
   <div id="content" class="loading">Cargando...</div>
+  <div id="contentContratos" style="display:none"></div>
 </main>
 <script>
 /* Instantánea de datos reales (Solicitudes de Compra), generada automáticamente.
@@ -202,12 +210,21 @@ function renderAll(){
       card("Solicitudes por Head", renderBarsObj(countBy(data,"head"), "orange")) +
       card("Proveedores - Cantidad de Solicitudes", renderBarsObj(countBy(data,"proveedor"), "blue", 15)) +
     '</div>' +
-    '<section class="section"><h2>Contratos Marco</h2>' + renderContratosMarco(data) + '</section>' +
     '<section class="section"><h2>Promedio de Gasto Mensual por Proveedor</h2><div class="hint">Promedio = gasto total del proveedor (en su moneda) / cantidad de meses del período filtrado con datos en esa moneda.</div>' + renderPromedioTable(data,"proveedor") + '</section>' +
     '<section class="section"><h2>Promedio de Gasto Mensual por Head</h2><div class="hint">Promedio = gasto total del head (en su moneda) / cantidad de meses del período filtrado con datos en esa moneda.</div>' + renderPromedioTable(data,"head") + '</section>' +
     '<section class="section"><h2>Detalle de Solicitudes ('+data.length+')</h2>' + renderDetailTable(data) + '</section>';
   document.getElementById("content").className = "";
   document.getElementById("content").innerHTML = html;
+  document.getElementById("contentContratos").innerHTML =
+    '<section class="section"><h2>Resumen Contratos Marco</h2>' + renderContratosMarco(data) + '</section>';
+  document.getElementById("tabsBar").style.display = "flex";
+}
+
+function switchTab(name, btn){
+  document.getElementById("content").style.display = name === "dashboard" ? "" : "none";
+  document.getElementById("contentContratos").style.display = name === "contratos" ? "" : "none";
+  document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
+  btn.classList.add("active");
 }
 
 function card(title, body){
