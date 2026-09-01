@@ -156,6 +156,9 @@ function getPurchaseRequests_() {
 
     var importe = normalizeAmount_(get(row, "Importe total"));
     var moneda = String(get(row, "Moneda") || "").trim() || "N/D";
+    var sociedad = String(get(row, "Sociedad") || "").trim();
+    var periodoRaw = get(row, "Periodo de servicio");
+    var periodoDate = periodoRaw instanceof Date ? periodoRaw : parseSpanishDate_(String(periodoRaw || ""));
 
     var monthKey = fechaDate.getFullYear() + "-" + (fechaDate.getMonth() + 1);
     if (!fxByMonth[monthKey]) fxByMonth[monthKey] = getMonthEndRates_(fechaDate.getFullYear(), fechaDate.getMonth() + 1);
@@ -170,6 +173,8 @@ function getPurchaseRequests_() {
       titulo: String(get(row, "Título de solicitud") || "").trim(),
       categoria: String(get(row, "Categoría") || "").trim(),
       proveedor: cleanProveedor_(String(get(row, "Proveedor") || "").trim()),
+      sociedad: sociedad,
+      periodo: periodoDate ? periodoDate.toISOString() : null,
       importe: importe,
       moneda: moneda,
       importeUsd: importeUsd,

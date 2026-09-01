@@ -77,7 +77,7 @@ tbody tr:hover{background:#f9fafb}
 <main>
   <div id="errorMsg"></div>
   <div id="tabsBar" class="tabs" style="display:none">
-    <button class="tab-btn active" onclick="switchTab('dashboard', this)">Dashboard</button>
+    <button class="tab-btn active" onclick="switchTab('dashboard', this)">Overview</button>
     <button class="tab-btn" onclick="switchTab('contratos', this)">Resumen Contratos Marco</button>
   </div>
   <div id="content" class="loading">Cargando...</div>
@@ -193,8 +193,51 @@ function renderAll(){
   document.getElementById("content").className = "";
   document.getElementById("content").innerHTML = html;
   document.getElementById("contentContratos").innerHTML =
+    renderContratosKpis(data) +
+    '<section class="section"><h2>Fuera de Contrato Marco (candidatos)</h2><div class="hint">Solicitudes sin contrato marco donde proveedor, sociedad y moneda coinciden con al menos otra solicitud del período filtrado: posibles candidatos a formalizar en un contrato marco.</div>' + renderFueraDeCmTable(data) + '</section>' +
     '<section class="section"><h2>Resumen Contratos Marco</h2>' + renderContratosMarco(data) + '</section>';
   document.getElementById("tabsBar").style.display = "flex";
+}
+
+function renderContratosKpis(data){
+  var contratos = {};
+  data.forEach(function(r){ if(r.contratoMarco) contratos[r.contratoMarco] = true; });
+  var cantidadContratos = Object.keys(contratos).length;
+  var fuera = fueraDeCmGrupos(data);
+  var gruposFuera = {};
+  fuera.forEach(function(r){ gruposFuera[r.proveedor+"||"+(r.sociedad||"")+"||"+r.moneda] = true; });
+  return '<div class="kpi-grid">' +
+    kpiCard("blue","Contratos Marco Creados", cantidadContratos, "contratos distintos en el período filtrado") +
+    kpiCard("red","Por Fuera de CM", fuera.length, Object.keys(gruposFuera).length + " combinación(es) proveedor/sociedad/moneda repetidas sin contrato") +
+    '</div>';
+}
+
+/** Solicitudes sin contrato marco cuyo proveedor+sociedad+moneda se repite 2+ veces en el período filtrado. */
+function fueraDeCmGrupos(data){
+  var sinContrato = data.filter(function(r){ return !r.contratoMarco; });
+  var grupos = {};
+  sinContrato.forEach(function(r){
+    var key = r.proveedor + "||" + (r.sociedad||"") + "||" + r.moneda;
+    (grupos[key] = grupos[key] || []).push(r);
+  });
+  var rows = [];
+  Object.keys(grupos).forEach(function(k){
+    if (grupos[k].length >= 2) rows = rows.concat(grupos[k]);
+  });
+  return rows;
+}
+
+function renderFueraDeCmTable(data){
+  var rows = fueraDeCmGrupos(data).slice().sort(function(a,b){
+    var ka = a.proveedor+"|"+(a.sociedad||"")+"|"+a.moneda, kb = b.proveedor+"|"+(b.sociedad||"")+"|"+b.moneda;
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return new Date(a.fecha) - new Date(b.fecha);
+  });
+  if (!rows.length) return '<div class="empty">No se encontraron solicitudes repetidas (mismo proveedor/sociedad/moneda) sin contrato marco</div>';
+  var body = rows.map(function(r){
+    return '<tr><td>'+esc(r.proveedor)+'</td><td>'+esc(r.sociedad||"-")+'</td><td>'+esc(r.moneda)+'</td><td>'+fmtMoney(r.importe,r.moneda)+'</td><td>'+(r.periodo?fmtDateOnly(r.periodo):"-")+'</td><td>'+fmtDate(r.fecha)+'</td></tr>';
+  }).join("");
+  return '<div class="table-wrap"><table><thead><tr><th>Proveedor</th><th>Sociedad</th><th>Moneda</th><th>Monto</th><th>Periodo</th><th>Marca Temporal</th></tr></thead><tbody>'+body+'</tbody></table></div>';
 }
 
 function switchTab(name, btn){
@@ -444,6 +487,9 @@ function fmtMoney(n, moneda){
 function fmtDate(iso){
   var d = new Date(iso);
   return d.toLocaleDateString("es-MX") + " " + d.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+}
+function fmtDateOnly(iso){
+  return new Date(iso).toLocaleDateString("es-MX");
 }
 function esc(s){
   return String(s==null?"":s).replace(/[&<>"']/g, function(c){
