@@ -24,7 +24,7 @@ https://ailenrojas-ops.github.io/recursos-dashboard/ordenes-compra.html
 
 Tiene el mismo código/UI que `Dashboard.html`, pero con un snapshot de datos embebido (no se actualiza solo).
 
-**Versión en Grid** (`grid.adminml.com`, link corto interno de ML):
+**Versión en Grid** (`grid.adminml.com`, link corto interno de ML) — EN PAUSA, ver nota abajo:
 https://grid.adminml.com/d/01M1F26PZQMN55W9B3WD5BJFKE/view
 
 Documento subido a Grid con `ordenes-compra.html`. Igual que la versión de GitHub Pages, es
@@ -44,6 +44,24 @@ Setup del refresco automático a Grid (una sola vez):
    (con ese nombre exacto).
 4. Editor de Apps Script → reloj (Disparadores) → Añadir disparador → función
    `dailyGridRefresh`, evento basado en tiempo, una vez por día.
+
+> **Estado (2026-09-02): en pausa.** Al generar el token, `POST /api/v1/tokens` en Grid
+> devolvió 503 y luego 504 (caída de infraestructura del lado de Grid, no de nuestro código).
+> Retomar cuando el servicio esté estable — probar de nuevo el mismo comando del paso 1.
+
+## Alertas de servicios mensuales
+
+Detecta servicios (Proveedor + Sociedad + Moneda + Categoría) que aparecen en al menos 2 de
+los últimos 3 meses pero no tienen ninguna solicitud cargada en el mes actual — para poder
+avisarle al solicitante habitual o provisionar el gasto esperado (se informa el promedio
+mensual en USD de los meses con datos).
+
+- Pestaña **"Alertas Mensuales"** en el dashboard en vivo (`Dashboard.html`), se carga sola
+  al abrirla.
+- Mail automático mensual con el mismo resumen: `monthlyAlertEmail()` en `OrdenesCompraCode.gs`,
+  pensado para un disparador de tipo "basado en tiempo" → mensual → día 10 → función
+  `monthlyAlertEmail`. Envía a `ailen.rojas@mercadolibre.com`. Si no hay alertas ese mes,
+  no manda nada (no genera ruido).
 
 ## Dashboard de Recursos Externos TA
 
