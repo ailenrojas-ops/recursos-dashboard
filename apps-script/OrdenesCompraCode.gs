@@ -281,3 +281,127 @@ function pushToGrid_(html) {
   }
   return JSON.parse(resp.getContentText());
 }
+
+/**
+ * Alertas de servicios mensuales recurrentes sin solicitud cargada este mes.
+ *
+ * Un "servicio" se identifica por Proveedor + Sociedad + Moneda + Categoría.
+ * Se considera "mensual recurrente" si tiene al menos una solicitud en 2 de
+ * los últimos 3 meses (sin contar el mes actual). Si además no tiene ninguna
+ * solicitud en el mes actual, se reporta como alerta, con el usuario/head
+ * habitual y el promedio de gasto mensual (USD) de los meses con datos, para
+ * poder avisar al solicitante o provisionar el gasto esperado.
+ *
+ * getMonthlyAlerts() la expone al Dashboard.html vía google.script.run.
+ * monthlyAlertEmail() manda el mismo resumen por mail (pensado para un
+ * disparador mensual, ej. el día 10).
+ */
+function getMonthlyAlerts() {
+  return computeMonthlyAlerts_();
+}
+
+function computeMonthlyAlerts_() {
+  var rows = getPurchaseRequests_().rows;
+  var now = new Date();
+  var currentKey = monthKey_(now.getFullYear(), now.getMonth());
+
+  var recentKeys = [];
+  for (var i = 1; i <= 3; i++) {
+    var d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    recentKeys.push(monthKey_(d.getFullYear(), d.getMonth()));
+  }
+
+  var groups = {};
+  rows.forEach(function (r) {
+    if (!r.proveedor || !r.categoria) return;
+    var key = [r.proveedor, r.sociedad || "", r.moneda, r.categoria].join("||");
+    if (!groups[key]) {
+      groups[key] = {
+        proveedor: r.proveedor, sociedad: r.sociedad, moneda: r.moneda, categoria: r.categoria,
+        meses: {}, usuario: r.usuario || r.email, head: r.head, ultimaFecha: r.fecha
+      };
+    }
+    var g = groups[key];
+    var d = new Date(r.fecha);
+    var mk = monthKey_(d.getFullYear(), d.getMonth());
+    if (!g.meses[mk]) g.meses[mk] = 0;
+    g.meses[mk] += (r.importeUsd != null ? r.importeUsd : 0);
+    if (new Date(r.fecha) > new Date(g.ultimaFecha)) {
+      g.ultimaFecha = r.fecha;
+      g.usuario = r.usuario || r.email;
+      g.head = r.head;
+    }
+  });
+
+  var alerts = [];
+  Object.keys(groups).forEach(function (key) {
+    var g = groups[key];
+    var mesesConDatosReciente = recentKeys.filter(function (mk) { return mk in g.meses; });
+    if (mesesConDatosReciente.length < 2) return; // no es un patrón mensual claro
+    if (currentKey in g.meses) return; // ya se cargó este mes
+
+    var montos = mesesConDatosReciente.map(function (mk) { return g.meses[mk]; });
+    var promedio = montos.reduce(function (a, b) { return a + b; }, 0) / montos.length;
+
+    alerts.push({
+      proveedor: g.proveedor,
+      sociedad: g.sociedad || "",
+      moneda: g.moneda,
+      categoria: g.categoria,
+      usuario: g.usuario || "",
+      head: g.head || "Sin asignar",
+      mesesRecientesConDatos: mesesConDatosReciente.length,
+      promedioUsdMensual: promedio,
+      ultimaFecha: g.ultimaFecha
+    });
+  });
+
+  alerts.sort(function (a, b) { return b.promedioUsdMensual - a.promedioUsdMensual; });
+  return alerts;
+}
+
+function monthKey_(year, month) {
+  return year + "-" + month;
+}
+
+function monthlyAlertEmail() {
+  var alerts = computeMonthlyAlerts_();
+  if (!alerts.length) return;
+
+  var rowsHtml = alerts.map(function (a) {
+    return "<tr>" +
+      "<td>" + escHtml_(a.proveedor) + "</td>" +
+      "<td>" + escHtml_(a.sociedad || "-") + "</td>" +
+      "<td>" + escHtml_(a.categoria) + "</td>" +
+      "<td>" + escHtml_(a.usuario || "-") + "</td>" +
+      "<td>" + escHtml_(a.head) + "</td>" +
+      "<td>" + fmtUsd_(a.promedioUsdMensual) + "</td>" +
+      "</tr>";
+  }).join("");
+
+  var html =
+    "<p>Los siguientes servicios mensuales recurrentes todavía no tienen una solicitud cargada este mes " +
+    "(según Solicitudes PRs - TA Shipping):</p>" +
+    '<table border="1" cellpadding="6" style="border-collapse:collapse;font-family:sans-serif;font-size:13px">' +
+    "<thead><tr><th>Proveedor</th><th>Sociedad</th><th>Categoría</th><th>Usuario habitual</th><th>Head</th><th>Promedio mensual (USD)</th></tr></thead>" +
+    "<tbody>" + rowsHtml + "</tbody></table>" +
+    "<p style=\"color:#6b7280;font-size:12px\">Promedio calculado sobre los últimos meses con datos disponibles. " +
+    "Usalo como referencia para provisionar el gasto esperado si la solicitud todavía no llegó.</p>";
+
+  MailApp.sendEmail({
+    to: "ailen.rojas@mercadolibre.com",
+    subject: "Alertas de solicitudes mensuales pendientes (" + alerts.length + ")",
+    htmlBody: html
+  });
+}
+
+function escHtml_(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+function fmtUsd_(n) {
+  if (n == null || isNaN(n)) return "-";
+  return "$" + Math.round(n).toLocaleString("en-US");
+}

@@ -79,9 +79,11 @@ tbody tr:hover{background:#f9fafb}
   <div id="tabsBar" class="tabs" style="display:none">
     <button class="tab-btn active" onclick="switchTab('dashboard', this)">Overview</button>
     <button class="tab-btn" onclick="switchTab('contratos', this)">Resumen Contratos Marco</button>
+    <button class="tab-btn" onclick="switchTab('alertas', this)">Alertas Mensuales</button>
   </div>
   <div id="content" class="loading">Cargando...</div>
   <div id="contentContratos" style="display:none"></div>
+  <div id="contentAlertas" style="display:none"></div>
 </main>
 <script>
 var RAW = [];
@@ -271,8 +273,48 @@ function csvEscape_(v){
 function switchTab(name, btn){
   document.getElementById("content").style.display = name === "dashboard" ? "" : "none";
   document.getElementById("contentContratos").style.display = name === "contratos" ? "" : "none";
+  document.getElementById("contentAlertas").style.display = name === "alertas" ? "" : "none";
   document.querySelectorAll(".tab-btn").forEach(function(b){ b.classList.remove("active"); });
   btn.classList.add("active");
+  if(name === "alertas" && !ALERTS_LOADED){
+    loadMonthlyAlerts();
+  }
+}
+
+var ALERTS_LOADED = false;
+function loadMonthlyAlerts(){
+  document.getElementById("contentAlertas").innerHTML = '<div class="loading">Cargando alertas...</div>';
+  google.script.run.withSuccessHandler(function(alerts){
+    ALERTS_LOADED = true;
+    renderMonthlyAlerts(alerts);
+  }).withFailureHandler(function(err){
+    document.getElementById("contentAlertas").innerHTML =
+      '<div class="empty">Error al cargar alertas: '+esc(err && err.message ? err.message : err)+'</div>';
+  }).getMonthlyAlerts();
+}
+
+function renderMonthlyAlerts(alerts){
+  var now = new Date();
+  var mesActual = mesNombre(String(now.getMonth()+1)) + " " + now.getFullYear();
+  var hint = '<div class="hint">Servicios con al menos 2 solicitudes en los últimos 3 meses (Proveedor + Sociedad + Moneda + Categoría) que todavía no tienen ninguna solicitud cargada en '+esc(mesActual)+'. El promedio es sobre los meses con datos, para provisionar el gasto esperado.</div>';
+  if(!alerts.length){
+    document.getElementById("contentAlertas").innerHTML =
+      '<section class="section"><h2>Alertas Mensuales</h2>'+hint+'<div class="empty">No hay servicios mensuales pendientes de cargar este mes 🎉</div></section>';
+    return;
+  }
+  var body = alerts.map(function(a){
+    return '<tr>'+
+      '<td>'+esc(a.proveedor)+'</td>'+
+      '<td>'+esc(a.sociedad||"-")+'</td>'+
+      '<td>'+esc(a.categoria)+'</td>'+
+      '<td>'+esc(a.usuario||"-")+'</td>'+
+      '<td>'+esc(a.head)+'</td>'+
+      '<td>'+fmtUSD(a.promedioUsdMensual)+'</td>'+
+    '</tr>';
+  }).join("");
+  var table = '<div class="table-wrap"><table><thead><tr><th>Proveedor</th><th>Sociedad</th><th>Categoría</th><th>Usuario habitual</th><th>Head</th><th>Promedio Mensual (USD)</th></tr></thead><tbody>'+body+'</tbody></table></div>';
+  document.getElementById("contentAlertas").innerHTML =
+    '<section class="section"><h2>Alertas Mensuales ('+alerts.length+')</h2>'+hint+table+'</section>';
 }
 
 function card(title, body){
