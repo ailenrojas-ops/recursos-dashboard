@@ -63,6 +63,65 @@ mensual en USD de los meses con datos).
   `monthlyAlertEmail`. Envía a `ailen.rojas@mercadolibre.com`. Si no hay alertas ese mes,
   no manda nada (no genera ruido).
 
+## Control de Pagos a Proveedores (nuevo, en pruebas)
+
+Proyecto **totalmente separado** del dashboard de Solicitudes de Orden de Compra —
+planilla propia, formulario propio, Apps Script propio. No toca ni depende de
+`OrdenesCompraCode.gs` / `Dashboard.html`, así se puede probar e iterar sin
+riesgo de romper lo que ya está en producción.
+
+**Objetivo:** que cualquiera pueda cargar el soporte de una factura/pago (excel,
+pdf, captura de un mail) sin tener que saber de memoria el Centro de Costo o la
+Cuenta Contable del proveedor — eso se autocompleta a partir de un maestro que
+se carga una única vez por proveedor.
+
+```mermaid
+flowchart TD
+    A[Alguien completa el Form:\nelige Proveedor + adjunta soporte] --> B[onFormSubmit se dispara solo]
+    B --> C{Proveedor ya está en\nMaestro Proveedores?}
+    C -- Sí --> D[Autocompleta Centro de Costo,\nCuenta Contable, Sociedad, Head]
+    C -- No --> E[Fila queda "Falta clasificar"\n+ mail de aviso]
+    E -. se completa una vez en el Maestro .-> F[Reclasificar pendientes\naplica retroactivo]
+    D --> G[Si el adjunto es Excel,\nintenta extraer el Monto solo]
+    G --> H[Fila nueva en la hoja "Pagos"]
+    F --> H
+```
+
+**Setup (una sola vez):**
+1. Crear una planilla de Google nueva, por ejemplo "Control de Pagos a Proveedores".
+2. En esa planilla, crear la hoja **"Maestro Proveedores"** con las columnas:
+   `Proveedor | Servicio | Centro de Costo | Cuenta Contable | Sociedad | Moneda habitual | Usuario habitual | Head | Notas`
+   y cargar ahí los proveedores que ya se conocen (se puede ir completando de a poco).
+3. Crear un **Google Form** llamado por ejemplo "Carga de Soporte de Pago" con estas preguntas
+   (el texto tiene que coincidir exactamente, están hardcodeadas en `FORM_Q` dentro de `Code.gs`):
+   - `Proveedor` (lista desplegable o texto corto)
+   - `Servicio (opcional)`
+   - `Monto (si lo sabés)`
+   - `Moneda (si la sabés)`
+   - `Mes de pago`
+   - Una pregunta de tipo **"Subir archivo"** para el soporte (obligatoria)
+   - Recolectar el email del que responde (Configuración del Form)
+4. En el Form: Respuestas > ícono de Sheets > vincular a la planilla del paso 1 (esto crea
+   la hoja de respuestas automáticamente).
+5. Extensiones > Apps Script (desde la planilla). Pegar `apps-script/proveedores-pagos/Code.gs`
+   como `Code.gs`, y crear un archivo HTML nuevo llamado `Dashboard` con el contenido de
+   `apps-script/proveedores-pagos/Dashboard.html`.
+6. Disparadores (reloj) > Añadir disparador > función `onFormSubmit`, evento "Al enviar
+   formulario", origen "Desde la hoja de cálculo".
+7. (Opcional, fase 2) Para intentar extraer el Monto de PDFs/imágenes vía OCR: Servicios >
+   agregar el servicio avanzado "Drive API", y en Propiedades del script agregar
+   `OCR_HABILITADO` = `true`. Es experimental — si falla, el registro se crea igual y el
+   monto queda para completar a mano, no bloquea nada.
+8. (Opcional) Implementar > Nueva implementación > Aplicación web, para tener el mini
+   dashboard de resumen del mes (`doGet` en `Code.gs`).
+
+**Uso del día a día:**
+- La persona solo elige el proveedor y adjunta el soporte — nada más.
+- Si el proveedor ya está clasificado, la fila en "Pagos" sale completa sola.
+- Si es un proveedor nuevo, se recibe un mail; se completa el Centro de Costo/Cuenta
+  Contable en el Maestro una vez, y se corre "Pagos Proveedores > Reclasificar pendientes"
+  desde el menú de la planilla para que se aplique también a lo ya cargado.
+
 ## Dashboard de Recursos Externos TA
 
 `index.html`, publicado por GitHub Pages en:
